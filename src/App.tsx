@@ -18,7 +18,9 @@ import NutritionPage from "./pages/NutritionPage";
 import HabitsPage from "./pages/HabitsPage";
 import ProfilePage from "./pages/ProfilePage";
 import PersonalDataPage from "./pages/PersonalDataPage";
+import GoalsPage from "./pages/GoalsPage";
 import SchedulePage from "./pages/SchedulePage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,7 +58,9 @@ const App = () => (
               <Route path="/habitos" element={<HabitsPage />} />
               <Route path="/perfil" element={<ProfilePage />} />
               <Route path="/perfil/datos" element={<PersonalDataPage />} />
+              <Route path="/perfil/objetivos" element={<GoalsPage />} />
               <Route path="/perfil/horarios" element={<SchedulePage />} />
+              <Route path="/perfil/config" element={<SettingsPage />} />
             </Route>
             
             {/* Catch-all */}
