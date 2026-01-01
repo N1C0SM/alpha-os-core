@@ -16,6 +16,8 @@ import TrainingPage from "./pages/TrainingPage";
 import NutritionPage from "./pages/NutritionPage";
 import HabitsPage from "./pages/HabitsPage";
 import ProfilePage from "./pages/ProfilePage";
+import PersonalDataPage from "./pages/PersonalDataPage";
+import SchedulePage from "./pages/SchedulePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +53,8 @@ const App = () => (
               <Route path="/nutricion" element={<NutritionPage />} />
               <Route path="/habitos" element={<HabitsPage />} />
               <Route path="/perfil" element={<ProfilePage />} />
+              <Route path="/perfil/datos" element={<PersonalDataPage />} />
+              <Route path="/perfil/horarios" element={<SchedulePage />} />
             </Route>
             
             {/* Catch-all */}
