@@ -13,6 +13,7 @@ import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import TodayPage from "./pages/TodayPage";
 import TrainingPage from "./pages/TrainingPage";
+import ActiveWorkoutPage from "./pages/ActiveWorkoutPage";
 import NutritionPage from "./pages/NutritionPage";
 import HabitsPage from "./pages/HabitsPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -50,6 +51,7 @@ const App = () => (
             }>
               <Route path="/" element={<TodayPage />} />
               <Route path="/entreno" element={<TrainingPage />} />
+              <Route path="/entreno/activo" element={<ActiveWorkoutPage />} />
               <Route path="/nutricion" element={<NutritionPage />} />
               <Route path="/habitos" element={<HabitsPage />} />
               <Route path="/perfil" element={<ProfilePage />} />

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +11,7 @@ import {
   useCreateWorkoutDay,
   useAddExerciseToPlan,
   useWorkoutSessions,
+  useStartWorkoutSession,
   useDeleteWorkoutDay,
   useUpdateWorkoutDay,
   useDeleteWorkoutPlanExercise,
@@ -33,6 +35,7 @@ const MUSCLE_GROUPS = [
 ];
 
 const TrainingPage: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'routines' | 'history'>('routines');
   const [isNewRoutineOpen, setIsNewRoutineOpen] = useState(false);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
@@ -53,11 +56,21 @@ const TrainingPage: React.FC = () => {
   const createPlan = useCreateWorkoutPlan();
   const createDay = useCreateWorkoutDay();
   const addExercise = useAddExerciseToPlan();
+  const startSession = useStartWorkoutSession();
   const updateDay = useUpdateWorkoutDay();
   const deleteDay = useDeleteWorkoutDay();
   const deletePlanExercise = useDeleteWorkoutPlanExercise();
   const deletePlan = useDeleteWorkoutPlan();
   const { toast } = useToast();
+
+  const handleStartEmptyWorkout = async () => {
+    try {
+      const session = await startSession.mutateAsync(undefined);
+      navigate(`/entreno/activo?session=${session.id}`);
+    } catch (error) {
+      toast({ title: 'Error al iniciar', variant: 'destructive' });
+    }
+  };
 
   const handleCreateRoutine = async () => {
     if (!newRoutineName.trim()) return;
@@ -444,10 +457,11 @@ const TrainingPage: React.FC = () => {
           {/* Quick start */}
           <Button 
             className="w-full h-14 bg-primary text-primary-foreground mb-6 text-base font-semibold"
-            onClick={() => toast({ title: 'Próximamente', description: 'Entreno rápido sin rutina' })}
+            onClick={handleStartEmptyWorkout}
+            disabled={startSession.isPending}
           >
             <Play className="w-5 h-5 mr-2" />
-            Empezar Entreno Vacío
+            {startSession.isPending ? 'Iniciando...' : 'Empezar Entreno Vacío'}
           </Button>
 
           {/* Routines list */}
