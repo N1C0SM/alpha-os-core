@@ -261,21 +261,33 @@ const SettingsPage: React.FC = () => {
                 <div>
                   <p className="font-medium text-foreground">Notificaciones</p>
                   <p className="text-sm text-muted-foreground">
-                    {!isSupported 
-                      ? 'No soportado en este navegador' 
+                    {permission === 'unsupported' || !isSupported
+                      ? 'No disponible en preview (funciona en la app publicada)' 
                       : permission === 'denied' 
-                        ? 'Bloqueadas en el navegador'
-                        : 'Recordatorios personalizados'}
+                        ? 'Bloqueadas - actívalas en configuración del navegador'
+                        : permission === 'default'
+                          ? 'Pulsa para activar'
+                          : 'Recordatorios personalizados'}
                   </p>
                 </div>
               </div>
               <Switch 
                 checked={notificationsEnabled && permission === 'granted'} 
                 onCheckedChange={handleNotificationsChange}
-                disabled={updatePreferences.isPending || !isSupported || permission === 'denied'}
+                disabled={updatePreferences.isPending || permission === 'unsupported' || permission === 'denied'}
               />
             </div>
           </div>
+
+          {/* Info for unsupported/preview context */}
+          {(permission === 'unsupported' || !isSupported) && (
+            <div className="bg-muted/50 rounded-xl border border-border p-4">
+              <p className="text-sm text-muted-foreground">
+                Las notificaciones no están disponibles en el modo preview. 
+                Publica tu app para recibir recordatorios en tu dispositivo.
+              </p>
+            </div>
+          )}
 
           {/* Notification details */}
           {notificationsEnabled && permission === 'granted' && (

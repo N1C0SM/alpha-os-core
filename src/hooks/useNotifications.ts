@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-export type NotificationPermissionState = 'default' | 'granted' | 'denied';
+export type NotificationPermissionState = 'default' | 'granted' | 'denied' | 'unsupported';
 
 export const useNotifications = () => {
   const [permission, setPermission] = useState<NotificationPermissionState>('default');
@@ -9,11 +9,17 @@ export const useNotifications = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const supported = 'Notification' in window;
+    // Check if we're in a secure context and notifications are available
+    const supported = typeof window !== 'undefined' && 
+                      'Notification' in window && 
+                      window.isSecureContext;
+    
     setIsSupported(supported);
     
     if (supported) {
       setPermission(Notification.permission as NotificationPermissionState);
+    } else {
+      setPermission('unsupported');
     }
   }, []);
 
