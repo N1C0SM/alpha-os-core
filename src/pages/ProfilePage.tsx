@@ -68,7 +68,8 @@ const ProfilePage: React.FC = () => {
         {menuItems.map((item, i) => (
           <button
             key={i}
-            className="w-full bg-card rounded-xl p-4 border border-border flex items-center gap-4"
+            onClick={() => item.path && navigate(item.path)}
+            className="w-full bg-card rounded-xl p-4 border border-border flex items-center gap-4 hover:border-primary/50 transition-colors"
           >
             <item.icon className="w-5 h-5 text-muted-foreground" />
             <span className="flex-1 text-left font-medium text-foreground">{item.label}</span>
