@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Dumbbell, Play, History, Plus, Loader2, ChevronDown, ChevronUp, Sparkles, PenLine } from 'lucide-react';
+import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { useWorkoutPlans, useCreateWorkoutPlan, useExercises, useCreateWorkoutDay, useAddExerciseToPlan } from '@/hooks/useWorkouts';
+import { useWorkoutPlans, useCreateWorkoutPlan, useExercises, useCreateWorkoutDay, useAddExerciseToPlan, useWorkoutSessions } from '@/hooks/useWorkouts';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -15,127 +15,61 @@ const MUSCLE_GROUPS = [
   { id: 'biceps', name: 'Bíceps' },
   { id: 'triceps', name: 'Tríceps' },
   { id: 'quadriceps', name: 'Cuádriceps' },
-  { id: 'hamstrings', name: 'Isquiotibiales' },
+  { id: 'hamstrings', name: 'Isquios' },
   { id: 'glutes', name: 'Glúteos' },
   { id: 'calves', name: 'Gemelos' },
   { id: 'core', name: 'Core' },
 ];
 
-const ROUTINE_TEMPLATES = [
-  {
-    id: 'push_pull_legs',
-    name: 'Push / Pull / Legs',
-    description: '6 días, 2 ciclos por semana',
-    days: ['Push (Pecho, Hombro, Tríceps)', 'Pull (Espalda, Bíceps)', 'Legs (Pierna)'],
-  },
-  {
-    id: 'upper_lower',
-    name: 'Upper / Lower',
-    description: '4 días, tren superior e inferior',
-    days: ['Upper (Tren Superior)', 'Lower (Tren Inferior)', 'Upper (Tren Superior)', 'Lower (Tren Inferior)'],
-  },
-  {
-    id: 'full_body',
-    name: 'Full Body',
-    description: '3 días, cuerpo completo',
-    days: ['Full Body A', 'Full Body B', 'Full Body C'],
-  },
-  {
-    id: 'bro_split',
-    name: 'Bro Split',
-    description: '5 días, un músculo por día',
-    days: ['Pecho', 'Espalda', 'Hombros', 'Brazos', 'Pierna'],
-  },
-];
-
-type CreateMode = 'select' | 'custom' | 'template';
-
 const TrainingPage: React.FC = () => {
-  const [isNewPlanOpen, setIsNewPlanOpen] = useState(false);
-  const [createMode, setCreateMode] = useState<CreateMode>('select');
-  const [isAddDayOpen, setIsAddDayOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'routines' | 'history'>('routines');
+  const [isNewRoutineOpen, setIsNewRoutineOpen] = useState(false);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
-  const [expandedDayId, setExpandedDayId] = useState<string | null>(null);
+  const [viewingRoutine, setViewingRoutine] = useState<string | null>(null);
   
-  const [newPlanName, setNewPlanName] = useState('');
+  const [newRoutineName, setNewRoutineName] = useState('');
   const [newDayName, setNewDayName] = useState('');
   const [searchExercise, setSearchExercise] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
-  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
 
   const { data: workoutPlans, isLoading } = useWorkoutPlans();
   const { data: exercises } = useExercises();
+  const { data: sessions } = useWorkoutSessions();
   const createPlan = useCreateWorkoutPlan();
   const createDay = useCreateWorkoutDay();
   const addExercise = useAddExerciseToPlan();
   const { toast } = useToast();
 
-  const handleCreateCustomPlan = async () => {
-    if (!newPlanName.trim()) return;
+  const handleCreateRoutine = async () => {
+    if (!newRoutineName.trim()) return;
     try {
-      const plan = await createPlan.mutateAsync({ name: newPlanName, split_type: 'custom' });
-      setSelectedPlanId(plan.id);
-      setNewPlanName('');
-      resetDialog();
-      toast({ title: 'Rutina creada', description: newPlanName });
+      const plan = await createPlan.mutateAsync({ name: newRoutineName, split_type: 'custom' });
+      setNewRoutineName('');
+      setIsNewRoutineOpen(false);
+      setViewingRoutine(plan.id);
+      toast({ title: 'Rutina creada' });
     } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo crear la rutina', variant: 'destructive' });
+      toast({ title: 'Error', variant: 'destructive' });
     }
   };
 
-  const handleCreateFromTemplate = async (template: typeof ROUTINE_TEMPLATES[0]) => {
-    setIsCreatingTemplate(true);
-    try {
-      const plan = await createPlan.mutateAsync({ 
-        name: template.name, 
-        split_type: template.id as 'push_pull_legs' | 'upper_lower' | 'full_body' | 'bro_split',
-        days_per_week: template.days.length
-      });
-      
-      // Create all days for the template
-      for (let i = 0; i < template.days.length; i++) {
-        await createDay.mutateAsync({
-          workout_plan_id: plan.id,
-          name: template.days[i],
-          day_number: i + 1,
-        });
-      }
-      
-      setSelectedPlanId(plan.id);
-      resetDialog();
-      toast({ title: 'Rutina creada', description: `${template.name} con ${template.days.length} días` });
-    } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo crear la rutina', variant: 'destructive' });
-    } finally {
-      setIsCreatingTemplate(false);
-    }
-  };
-
-  const resetDialog = () => {
-    setIsNewPlanOpen(false);
-    setCreateMode('select');
-    setNewPlanName('');
-  };
-
-  const handleCreateDay = async () => {
-    if (!newDayName.trim() || !selectedPlanId) return;
-    const plan = workoutPlans?.find(p => p.id === selectedPlanId);
-    const dayNumber = (plan?.workout_plan_days?.length || 0) + 1;
+  const handleAddDay = async (routineId: string) => {
+    if (!newDayName.trim()) return;
+    const routine = workoutPlans?.find(p => p.id === routineId);
+    const dayNumber = (routine?.workout_plan_days?.length || 0) + 1;
     
     try {
-      const day = await createDay.mutateAsync({
-        workout_plan_id: selectedPlanId,
+      await createDay.mutateAsync({
+        workout_plan_id: routineId,
         name: newDayName,
         day_number: dayNumber,
       });
       setNewDayName('');
-      setIsAddDayOpen(false);
-      setExpandedDayId(day.id);
       toast({ title: 'Día añadido' });
     } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo añadir el día', variant: 'destructive' });
+      toast({ title: 'Error', variant: 'destructive' });
     }
   };
 
@@ -148,11 +82,11 @@ const TrainingPage: React.FC = () => {
       });
       toast({ title: 'Ejercicio añadido' });
     } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo añadir el ejercicio', variant: 'destructive' });
+      toast({ title: 'Error', variant: 'destructive' });
     }
   };
 
-  const activePlan = workoutPlans?.find(p => p.id === selectedPlanId) || workoutPlans?.[0];
+  const currentRoutine = workoutPlans?.find(p => p.id === viewingRoutine);
 
   const filteredExercises = exercises?.filter(ex => {
     const matchesSearch = !searchExercise || 
@@ -170,372 +104,306 @@ const TrainingPage: React.FC = () => {
     );
   }
 
+  // Viewing a specific routine
+  if (currentRoutine) {
+    return (
+      <div className="px-4 py-6 safe-top">
+        <div className="flex items-center gap-3 mb-6">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => setViewingRoutine(null)}
+            className="text-muted-foreground"
+          >
+            ← Atrás
+          </Button>
+        </div>
+        
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground">{currentRoutine.name}</h1>
+          <p className="text-sm text-muted-foreground">
+            {currentRoutine.workout_plan_days?.length || 0} días de entreno
+          </p>
+        </div>
+
+        {/* Days list */}
+        <div className="space-y-3 mb-6">
+          {currentRoutine.workout_plan_days?.sort((a, b) => a.day_number - b.day_number).map((day) => (
+            <div key={day.id} className="bg-card rounded-xl border border-border p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-semibold text-foreground">{day.name}</h3>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-primary"
+                  onClick={() => {
+                    setSelectedDayId(day.id);
+                    setIsAddExerciseOpen(true);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Ejercicio
+                </Button>
+              </div>
+              
+              {day.workout_plan_exercises && day.workout_plan_exercises.length > 0 ? (
+                <div className="space-y-2">
+                  {day.workout_plan_exercises.map((ex) => (
+                    <div key={ex.id} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
+                      <span className="text-sm text-foreground">
+                        {ex.exercises?.name_es || ex.exercises?.name}
+                      </span>
+                      <span className="text-xs font-medium text-primary">
+                        {ex.sets} × {ex.reps_min}-{ex.reps_max}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Sin ejercicios</p>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Add new day */}
+        <div className="bg-card rounded-xl border border-dashed border-border p-4">
+          <div className="flex gap-2">
+            <Input
+              placeholder="Nombre del día (ej: Pecho y Tríceps)"
+              value={newDayName}
+              onChange={(e) => setNewDayName(e.target.value)}
+              className="bg-secondary border-border"
+            />
+            <Button 
+              onClick={() => handleAddDay(currentRoutine.id)}
+              disabled={!newDayName.trim() || createDay.isPending}
+              className="bg-primary text-primary-foreground shrink-0"
+            >
+              {createDay.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+
+        {/* Add Exercise Dialog */}
+        <Dialog open={isAddExerciseOpen} onOpenChange={setIsAddExerciseOpen}>
+          <DialogContent className="bg-card border-border max-h-[85vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle>Añadir ejercicio</DialogTitle>
+              <DialogDescription>Busca y selecciona ejercicios</DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-3 pt-2">
+              <Input
+                placeholder="Buscar ejercicio..."
+                value={searchExercise}
+                onChange={(e) => setSearchExercise(e.target.value)}
+                className="bg-secondary border-border"
+              />
+              
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <button
+                  onClick={() => setSelectedMuscle(null)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
+                    !selectedMuscle ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                  )}
+                >
+                  Todos
+                </button>
+                {MUSCLE_GROUPS.map((muscle) => (
+                  <button
+                    key={muscle.id}
+                    onClick={() => setSelectedMuscle(muscle.id)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
+                      selectedMuscle === muscle.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                    )}
+                  >
+                    {muscle.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <ScrollArea className="flex-1 -mx-6 px-6">
+              <div className="space-y-2 py-2">
+                {filteredExercises?.map((ex) => (
+                  <button
+                    key={ex.id}
+                    onClick={() => handleAddExercise(ex.id)}
+                    disabled={addExercise.isPending}
+                    className="w-full flex items-center justify-between p-3 bg-secondary/50 hover:bg-secondary rounded-lg transition-colors text-left"
+                  >
+                    <div>
+                      <span className="text-sm font-medium text-foreground">
+                        {ex.name_es || ex.name}
+                      </span>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {MUSCLE_GROUPS.find(m => m.id === ex.primary_muscle)?.name || ex.primary_muscle}
+                      </p>
+                    </div>
+                    <Plus className="w-4 h-4 text-primary" />
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // Main view
   return (
     <div className="px-4 py-6 safe-top">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Entrenamiento</h1>
-        <Button 
-          size="icon" 
-          className="bg-primary text-primary-foreground rounded-full"
-          onClick={() => setIsNewPlanOpen(true)}
-        >
-          <Plus className="w-5 h-5" />
-        </Button>
       </div>
 
-      {/* New Plan Dialog */}
-      <Dialog open={isNewPlanOpen} onOpenChange={(open) => {
-        if (!open) resetDialog();
-        else setIsNewPlanOpen(true);
-      }}>
-        <DialogContent className="bg-card border-border">
-          <DialogHeader>
-            <DialogTitle>Nueva rutina</DialogTitle>
-            <DialogDescription>
-              {createMode === 'select' && 'Elige cómo crear tu rutina'}
-              {createMode === 'custom' && 'Escribe el nombre de tu rutina'}
-              {createMode === 'template' && 'Selecciona una plantilla'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {createMode === 'select' && (
-            <div className="grid grid-cols-2 gap-3 pt-4">
-              <button
-                onClick={() => setCreateMode('template')}
-                className="flex flex-col items-center gap-3 p-5 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors border border-border"
-              >
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-primary" />
-                </div>
-                <div className="text-center">
-                  <p className="font-medium text-foreground">Plantilla</p>
-                  <p className="text-xs text-muted-foreground">PPL, Upper/Lower...</p>
-                </div>
-              </button>
-              
-              <button
-                onClick={() => setCreateMode('custom')}
-                className="flex flex-col items-center gap-3 p-5 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors border border-border"
-              >
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <PenLine className="w-6 h-6 text-primary" />
-                </div>
-                <div className="text-center">
-                  <p className="font-medium text-foreground">Personalizada</p>
-                  <p className="text-xs text-muted-foreground">Crea desde cero</p>
-                </div>
-              </button>
-            </div>
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 bg-secondary rounded-xl mb-6">
+        <button
+          onClick={() => setActiveTab('routines')}
+          className={cn(
+            "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
+            activeTab === 'routines' 
+              ? "bg-card text-foreground shadow-sm" 
+              : "text-muted-foreground"
           )}
-          
-          {createMode === 'custom' && (
-            <div className="space-y-4 pt-4">
-              <Input
-                placeholder="Nombre de la rutina"
-                value={newPlanName}
-                onChange={(e) => setNewPlanName(e.target.value)}
-                className="bg-secondary border-border"
-                autoFocus
-              />
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline"
-                  onClick={() => setCreateMode('select')}
-                  className="flex-1"
-                >
-                  Atrás
-                </Button>
-                <Button 
-                  onClick={handleCreateCustomPlan} 
-                  className="flex-1 bg-primary text-primary-foreground"
-                  disabled={!newPlanName.trim() || createPlan.isPending}
-                >
-                  {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear'}
-                </Button>
-              </div>
-            </div>
+        >
+          Mis Rutinas
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={cn(
+            "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
+            activeTab === 'history' 
+              ? "bg-card text-foreground shadow-sm" 
+              : "text-muted-foreground"
           )}
-          
-          {createMode === 'template' && (
-            <div className="space-y-3 pt-4">
-              {ROUTINE_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => handleCreateFromTemplate(template)}
-                  disabled={isCreatingTemplate}
-                  className="w-full flex items-center justify-between p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors border border-border text-left disabled:opacity-50"
-                >
-                  <div>
-                    <p className="font-medium text-foreground">{template.name}</p>
-                    <p className="text-xs text-muted-foreground">{template.description}</p>
-                  </div>
-                  {isCreatingTemplate ? (
-                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                  ) : (
-                    <Plus className="w-5 h-5 text-primary" />
-                  )}
-                </button>
-              ))}
-              <Button 
-                variant="outline"
-                onClick={() => setCreateMode('select')}
-                className="w-full mt-2"
-              >
-                Atrás
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        >
+          Historial
+        </button>
+      </div>
 
-      {/* Plan Selector */}
-      {workoutPlans && workoutPlans.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
-          {workoutPlans.map((plan) => (
-            <button
-              key={plan.id}
-              onClick={() => setSelectedPlanId(plan.id)}
-              className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
-                activePlan?.id === plan.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground"
-              )}
-            >
-              {plan.name}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {activePlan ? (
+      {activeTab === 'routines' && (
         <>
-          {/* Active Plan Header */}
-          <div className="bg-gradient-to-br from-primary/20 to-primary/5 rounded-2xl p-5 mb-6 border border-primary/30">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-foreground">{activePlan.name}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {activePlan.workout_plan_days?.length || 0} días
-                </p>
-              </div>
-              <Button className="bg-primary text-primary-foreground rounded-full w-12 h-12">
-                <Play className="w-5 h-5 ml-0.5" />
-              </Button>
-            </div>
-          </div>
+          {/* Quick start */}
+          <Button 
+            className="w-full h-14 bg-primary text-primary-foreground mb-6 text-base font-semibold"
+            onClick={() => toast({ title: 'Próximamente', description: 'Entreno rápido sin rutina' })}
+          >
+            <Play className="w-5 h-5 mr-2" />
+            Empezar Entreno Vacío
+          </Button>
 
-          {/* Days */}
+          {/* Routines list */}
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-foreground">Días de entreno</h3>
+            <h2 className="font-semibold text-foreground">Rutinas</h2>
             <Button 
               variant="ghost" 
               size="sm" 
               className="text-primary"
-              onClick={() => setIsAddDayOpen(true)}
+              onClick={() => setIsNewRoutineOpen(true)}
             >
-              <Plus className="w-4 h-4 mr-1" /> Añadir día
+              <Plus className="w-4 h-4 mr-1" />
+              Nueva
             </Button>
           </div>
 
-          {/* Add Day Dialog */}
-          <Dialog open={isAddDayOpen} onOpenChange={setIsAddDayOpen}>
-            <DialogContent className="bg-card border-border">
-              <DialogHeader>
-                <DialogTitle>Añadir día</DialogTitle>
-                <DialogDescription>Añade un nuevo día a tu rutina</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <Input
-                  placeholder="Nombre del día (ej: Push, Pull, Pierna...)"
-                  value={newDayName}
-                  onChange={(e) => setNewDayName(e.target.value)}
-                  className="bg-secondary border-border"
-                  autoFocus
-                />
-                <Button 
-                  onClick={handleCreateDay} 
-                  className="w-full bg-primary text-primary-foreground"
-                  disabled={!newDayName.trim() || createDay.isPending}
+          {workoutPlans && workoutPlans.length > 0 ? (
+            <div className="space-y-3">
+              {workoutPlans.map((routine) => (
+                <button
+                  key={routine.id}
+                  onClick={() => setViewingRoutine(routine.id)}
+                  className="w-full bg-card rounded-xl border border-border p-4 text-left hover:border-primary/50 transition-colors"
                 >
-                  {createDay.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Añadir día'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-foreground">{routine.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {routine.workout_plan_days?.length || 0} días
+                      </p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-card rounded-xl border border-dashed border-border">
+              <Dumbbell className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground mb-4">No tienes rutinas</p>
+              <Button onClick={() => setIsNewRoutineOpen(true)} className="bg-primary text-primary-foreground">
+                <Plus className="w-4 h-4 mr-2" />
+                Crear Rutina
+              </Button>
+            </div>
+          )}
+        </>
+      )}
 
-          {activePlan.workout_plan_days && activePlan.workout_plan_days.length > 0 ? (
-            <div className="space-y-3 mb-6">
-              {activePlan.workout_plan_days
-                .sort((a, b) => a.day_number - b.day_number)
-                .map((day) => (
-                <div key={day.id} className="bg-card rounded-xl border border-border overflow-hidden">
-                  <button
-                    onClick={() => setExpandedDayId(expandedDayId === day.id ? null : day.id)}
-                    className="w-full p-4 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
-                        {day.day_number}
-                      </div>
-                      <div className="text-left">
-                        <span className="font-medium text-foreground">{day.name}</span>
-                        <p className="text-xs text-muted-foreground">
-                          {day.workout_plan_exercises?.length || 0} ejercicios
-                        </p>
-                      </div>
-                    </div>
-                    {expandedDayId === day.id ? (
-                      <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
+      {activeTab === 'history' && (
+        <>
+          {sessions && sessions.length > 0 ? (
+            <div className="space-y-3">
+              {sessions.map((session) => (
+                <div key={session.id} className="bg-card rounded-xl border border-border p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-foreground">
+                      {session.workout_plan_days?.name || 'Entreno libre'}
+                    </h3>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(session.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    {session.duration_minutes && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        {session.duration_minutes} min
+                      </span>
                     )}
-                  </button>
-                  
-                  {expandedDayId === day.id && (
-                    <div className="px-4 pb-4 border-t border-border pt-3">
-                      {day.workout_plan_exercises && day.workout_plan_exercises.length > 0 ? (
-                        <div className="space-y-2 mb-3">
-                          {day.workout_plan_exercises.map((ex) => (
-                            <div key={ex.id} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
-                              <span className="text-sm text-foreground">
-                                {ex.exercises?.name_es || ex.exercises?.name}
-                              </span>
-                              <span className="text-xs text-primary font-medium bg-primary/10 px-2 py-1 rounded">
-                                {ex.sets}×{ex.reps_min}-{ex.reps_max}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm text-muted-foreground mb-3">Sin ejercicios aún</p>
-                      )}
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-dashed border-primary/50 text-primary hover:bg-primary/10"
-                        onClick={() => {
-                          setSelectedDayId(day.id);
-                          setIsAddExerciseOpen(true);
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Añadir ejercicio
-                      </Button>
-                    </div>
-                  )}
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 mb-6 bg-card rounded-xl border border-dashed border-border">
-              <p className="text-muted-foreground mb-3">Tu rutina está vacía</p>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsAddDayOpen(true)}
-                className="border-primary/50 text-primary"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Añadir primer día
-              </Button>
+            <div className="text-center py-12 bg-card rounded-xl border border-dashed border-border">
+              <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">Sin entrenos registrados</p>
             </div>
           )}
-
-          {/* Add Exercise Dialog */}
-          <Dialog open={isAddExerciseOpen} onOpenChange={setIsAddExerciseOpen}>
-            <DialogContent className="bg-card border-border max-h-[85vh] flex flex-col">
-              <DialogHeader>
-                <DialogTitle>Añadir ejercicio</DialogTitle>
-                <DialogDescription>Selecciona un ejercicio para añadir</DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-3 pt-2">
-                <Input
-                  placeholder="Buscar ejercicio..."
-                  value={searchExercise}
-                  onChange={(e) => setSearchExercise(e.target.value)}
-                  className="bg-secondary border-border"
-                />
-                
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  <button
-                    onClick={() => setSelectedMuscle(null)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
-                      !selectedMuscle ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                    )}
-                  >
-                    Todos
-                  </button>
-                  {MUSCLE_GROUPS.map((muscle) => (
-                    <button
-                      key={muscle.id}
-                      onClick={() => setSelectedMuscle(muscle.id)}
-                      className={cn(
-                        "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
-                        selectedMuscle === muscle.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                      )}
-                    >
-                      {muscle.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              
-              <ScrollArea className="flex-1 -mx-6 px-6">
-                <div className="space-y-2 py-2">
-                  {filteredExercises?.map((ex) => (
-                    <button
-                      key={ex.id}
-                      onClick={() => handleAddExercise(ex.id)}
-                      disabled={addExercise.isPending}
-                      className="w-full flex items-center justify-between p-3 bg-secondary/50 hover:bg-secondary rounded-lg transition-colors text-left"
-                    >
-                      <div>
-                        <span className="text-sm font-medium text-foreground">
-                          {ex.name_es || ex.name}
-                        </span>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {ex.primary_muscle?.replace('_', ' ')}
-                        </p>
-                      </div>
-                      <Plus className="w-4 h-4 text-primary" />
-                    </button>
-                  ))}
-                  
-                  {filteredExercises?.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">
-                      No se encontraron ejercicios
-                    </p>
-                  )}
-                </div>
-              </ScrollArea>
-            </DialogContent>
-          </Dialog>
         </>
-      ) : (
-        <div className="text-center py-12">
-          <Dumbbell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground mb-4">No tienes rutinas de entrenamiento</p>
-          <Button onClick={() => setIsNewPlanOpen(true)} className="bg-primary text-primary-foreground">
-            <Plus className="w-4 h-4 mr-2" />
-            Crear primera rutina
-          </Button>
-        </div>
       )}
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-3">
-        <Button variant="outline" className="h-14 border-border">
-          <History className="w-5 h-5 mr-2" />
-          Historial
-        </Button>
-        <Button variant="outline" className="h-14 border-border">
-          <Dumbbell className="w-5 h-5 mr-2" />
-          Ejercicios
-        </Button>
-      </div>
+      {/* New Routine Dialog */}
+      <Dialog open={isNewRoutineOpen} onOpenChange={setIsNewRoutineOpen}>
+        <DialogContent className="bg-card border-border">
+          <DialogHeader>
+            <DialogTitle>Nueva Rutina</DialogTitle>
+            <DialogDescription>Dale un nombre a tu rutina</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <Input
+              placeholder="Ej: Push Pull Legs, Full Body..."
+              value={newRoutineName}
+              onChange={(e) => setNewRoutineName(e.target.value)}
+              className="bg-secondary border-border"
+              autoFocus
+            />
+            <Button 
+              onClick={handleCreateRoutine} 
+              className="w-full bg-primary text-primary-foreground"
+              disabled={!newRoutineName.trim() || createPlan.isPending}
+            >
+              {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear Rutina'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
