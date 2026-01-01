@@ -6,17 +6,18 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
+import { usePreferences, useUpdatePreferences } from '@/hooks/usePreferences';
 
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
+  const { data: preferences, isLoading: prefsLoading } = usePreferences();
+  const updatePreferences = useUpdatePreferences();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
-  const [notifications, setNotifications] = React.useState(true);
   const [mounted, setMounted] = React.useState(false);
 
-  // Avoid hydration mismatch
   React.useEffect(() => {
     setMounted(true);
   }, []);
@@ -36,7 +37,25 @@ const SettingsPage: React.FC = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
+  const handleNotificationsChange = async (enabled: boolean) => {
+    try {
+      await updatePreferences.mutateAsync({ notifications_enabled: enabled });
+      toast({ title: enabled ? 'Notificaciones activadas' : 'Notificaciones desactivadas' });
+    } catch {
+      toast({ title: 'Error al guardar', variant: 'destructive' });
+    }
+  };
+
   const isDark = theme === 'dark';
+  const notificationsEnabled = preferences?.notifications_enabled ?? true;
+
+  if (prefsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-6 safe-top">
@@ -65,8 +84,9 @@ const SettingsPage: React.FC = () => {
               </div>
             </div>
             <Switch 
-              checked={notifications} 
-              onCheckedChange={setNotifications}
+              checked={notificationsEnabled} 
+              onCheckedChange={handleNotificationsChange}
+              disabled={updatePreferences.isPending}
             />
           </div>
         </div>
