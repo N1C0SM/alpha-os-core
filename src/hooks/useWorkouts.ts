@@ -245,3 +245,67 @@ export const useCompleteWorkoutSession = () => {
     },
   });
 };
+
+export const useUpdateWorkoutDay = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ dayId, name }: { dayId: string; name: string }) => {
+      const { data, error } = await supabase
+        .from('workout_plan_days')
+        .update({ name })
+        .eq('id', dayId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workout_plans'] });
+    },
+  });
+};
+
+export const useDeleteWorkoutDay = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ dayId }: { dayId: string }) => {
+      // Delete exercises for the day first (FK safety)
+      const { error: exError } = await supabase
+        .from('workout_plan_exercises')
+        .delete()
+        .eq('workout_plan_day_id', dayId);
+      if (exError) throw exError;
+
+      const { error } = await supabase
+        .from('workout_plan_days')
+        .delete()
+        .eq('id', dayId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workout_plans'] });
+    },
+  });
+};
+
+export const useDeleteWorkoutPlanExercise = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ planExerciseId }: { planExerciseId: string }) => {
+      const { error } = await supabase
+        .from('workout_plan_exercises')
+        .delete()
+        .eq('id', planExerciseId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workout_plans'] });
+    },
+  });
+};

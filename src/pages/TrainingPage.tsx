@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
-import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, Flame } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { useWorkoutPlans, useCreateWorkoutPlan, useExercises, useCreateWorkoutDay, useAddExerciseToPlan, useWorkoutSessions } from '@/hooks/useWorkouts';
+import {
+  useWorkoutPlans,
+  useCreateWorkoutPlan,
+  useExercises,
+  useCreateWorkoutDay,
+  useAddExerciseToPlan,
+  useWorkoutSessions,
+  useDeleteWorkoutDay,
+  useUpdateWorkoutDay,
+  useDeleteWorkoutPlanExercise,
+} from '@/hooks/useWorkouts';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,10 +35,12 @@ const TrainingPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'routines' | 'history'>('routines');
   const [isNewRoutineOpen, setIsNewRoutineOpen] = useState(false);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
-  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(null);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [viewingRoutine, setViewingRoutine] = useState<string | null>(null);
-  
+
+  const [editingDayId, setEditingDayId] = useState<string | null>(null);
+  const [editingDayName, setEditingDayName] = useState('');
+
   const [newRoutineName, setNewRoutineName] = useState('');
   const [newDayName, setNewDayName] = useState('');
   const [searchExercise, setSearchExercise] = useState('');
@@ -40,6 +52,9 @@ const TrainingPage: React.FC = () => {
   const createPlan = useCreateWorkoutPlan();
   const createDay = useCreateWorkoutDay();
   const addExercise = useAddExerciseToPlan();
+  const updateDay = useUpdateWorkoutDay();
+  const deleteDay = useDeleteWorkoutDay();
+  const deletePlanExercise = useDeleteWorkoutPlanExercise();
   const { toast } = useToast();
 
   const handleCreateRoutine = async () => {
@@ -59,7 +74,7 @@ const TrainingPage: React.FC = () => {
     if (!newDayName.trim()) return;
     const routine = workoutPlans?.find(p => p.id === routineId);
     const dayNumber = (routine?.workout_plan_days?.length || 0) + 1;
-    
+
     try {
       await createDay.mutateAsync({
         workout_plan_id: routineId,
@@ -86,15 +101,60 @@ const TrainingPage: React.FC = () => {
     }
   };
 
+  const handleStartEditDay = (dayId: string, currentName: string) => {
+    setEditingDayId(dayId);
+    setEditingDayName(currentName);
+  };
+
+  const handleCancelEditDay = () => {
+    setEditingDayId(null);
+    setEditingDayName('');
+  };
+
+  const handleSaveDayName = async () => {
+    if (!editingDayId) return;
+    if (!editingDayName.trim()) return;
+
+    try {
+      await updateDay.mutateAsync({ dayId: editingDayId, name: editingDayName.trim() });
+      toast({ title: 'Día actualizado' });
+      handleCancelEditDay();
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo actualizar el día', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteDay = async (dayId: string) => {
+    try {
+      await deleteDay.mutateAsync({ dayId });
+      toast({ title: 'Día eliminado' });
+      if (selectedDayId === dayId) setSelectedDayId(null);
+      if (editingDayId === dayId) handleCancelEditDay();
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo eliminar el día', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteExerciseFromDay = async (planExerciseId: string) => {
+    try {
+      await deletePlanExercise.mutateAsync({ planExerciseId });
+      toast({ title: 'Ejercicio eliminado' });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo eliminar el ejercicio', variant: 'destructive' });
+    }
+  };
+
   const currentRoutine = workoutPlans?.find(p => p.id === viewingRoutine);
 
-  const filteredExercises = exercises?.filter(ex => {
-    const matchesSearch = !searchExercise || 
-      (ex.name_es?.toLowerCase().includes(searchExercise.toLowerCase())) ||
-      (ex.name?.toLowerCase().includes(searchExercise.toLowerCase()));
-    const matchesMuscle = !selectedMuscle || ex.primary_muscle === selectedMuscle;
-    return matchesSearch && matchesMuscle;
-  });
+  const filteredExercises = useMemo(() => {
+    return exercises?.filter(ex => {
+      const matchesSearch = !searchExercise ||
+        ex.name_es?.toLowerCase().includes(searchExercise.toLowerCase()) ||
+        ex.name?.toLowerCase().includes(searchExercise.toLowerCase());
+      const matchesMuscle = !selectedMuscle || ex.primary_muscle === selectedMuscle;
+      return matchesSearch && matchesMuscle;
+    });
+  }, [exercises, searchExercise, selectedMuscle]);
 
   if (isLoading) {
     return (
@@ -128,42 +188,110 @@ const TrainingPage: React.FC = () => {
 
         {/* Days list */}
         <div className="space-y-3 mb-6">
-          {currentRoutine.workout_plan_days?.sort((a, b) => a.day_number - b.day_number).map((day) => (
-            <div key={day.id} className="bg-card rounded-xl border border-border p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-foreground">{day.name}</h3>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="text-primary"
-                  onClick={() => {
-                    setSelectedDayId(day.id);
-                    setIsAddExerciseOpen(true);
-                  }}
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  Ejercicio
-                </Button>
-              </div>
-              
-              {day.workout_plan_exercises && day.workout_plan_exercises.length > 0 ? (
-                <div className="space-y-2">
-                  {day.workout_plan_exercises.map((ex) => (
-                    <div key={ex.id} className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
-                      <span className="text-sm text-foreground">
-                        {ex.exercises?.name_es || ex.exercises?.name}
-                      </span>
-                      <span className="text-xs font-medium text-primary">
-                        {ex.sets} × {ex.reps_min}-{ex.reps_max}
-                      </span>
-                    </div>
-                  ))}
+          {currentRoutine.workout_plan_days?.sort((a, b) => a.day_number - b.day_number).map((day) => {
+            const isEditing = editingDayId === day.id;
+
+            return (
+              <div key={day.id} className="bg-card rounded-xl border border-border p-4">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editingDayName}
+                          onChange={(e) => setEditingDayName(e.target.value)}
+                          className="bg-secondary border-border"
+                        />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-primary"
+                          onClick={handleSaveDayName}
+                          disabled={updateDay.isPending || !editingDayName.trim()}
+                          aria-label="Guardar nombre del día"
+                        >
+                          <Check className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={handleCancelEditDay}
+                          aria-label="Cancelar edición"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-foreground truncate">{day.name}</h3>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleStartEditDay(day.id, day.name)}
+                          aria-label="Editar día"
+                        >
+                          <PencilLine className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => handleDeleteDay(day.id)}
+                          disabled={deleteDay.isPending}
+                          aria-label="Eliminar día"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-primary"
+                    onClick={() => {
+                      setSelectedDayId(day.id);
+                      setIsAddExerciseOpen(true);
+                    }}
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Ejercicio
+                  </Button>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">Sin ejercicios</p>
-              )}
-            </div>
-          ))}
+
+                {day.workout_plan_exercises && day.workout_plan_exercises.length > 0 ? (
+                  <div className="space-y-2">
+                    {day.workout_plan_exercises.map((ex) => (
+                      <div key={ex.id} className="flex items-center justify-between gap-3 py-2 px-3 bg-secondary/50 rounded-lg">
+                        <div className="min-w-0">
+                          <p className="text-sm text-foreground truncate">
+                            {ex.exercises?.name_es || ex.exercises?.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {ex.sets} × {ex.reps_min}-{ex.reps_max}
+                          </p>
+                        </div>
+
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => handleDeleteExerciseFromDay(ex.id)}
+                          disabled={deletePlanExercise.isPending}
+                          aria-label="Eliminar ejercicio"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sin ejercicios</p>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Add new day */}
