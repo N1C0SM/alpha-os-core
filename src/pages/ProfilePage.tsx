@@ -1,0 +1,93 @@
+import React from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
+import { Button } from '@/components/ui/button';
+import { User, Target, Calendar, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
+const ProfilePage: React.FC = () => {
+  const { user, signOut } = useAuth();
+  const { data: profile } = useProfile();
+  const navigate = useNavigate();
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  const goalLabels = {
+    muscle_gain: 'Ganar músculo',
+    fat_loss: 'Perder grasa',
+    recomposition: 'Recomposición',
+    maintenance: 'Mantener',
+  };
+
+  const menuItems = [
+    { icon: User, label: 'Datos personales', path: '/perfil/datos' },
+    { icon: Target, label: 'Objetivos', path: '/perfil/objetivos' },
+    { icon: Calendar, label: 'Horarios', path: '/perfil/horarios' },
+    { icon: Settings, label: 'Configuración', path: '/perfil/config' },
+  ];
+
+  return (
+    <div className="px-4 py-6 safe-top">
+      <h1 className="text-2xl font-bold text-foreground mb-6">Perfil</h1>
+
+      {/* Profile Card */}
+      <div className="bg-card rounded-2xl p-5 mb-6 border border-border">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
+            {profile?.full_name?.charAt(0) || 'A'}
+          </div>
+          <div className="flex-1">
+            <h2 className="text-xl font-bold text-foreground">{profile?.full_name || 'Usuario'}</h2>
+            <p className="text-sm text-muted-foreground">{user?.email}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-border">
+          <div className="text-center">
+            <p className="text-xl font-bold text-foreground">{profile?.weight_kg || '--'}kg</p>
+            <p className="text-xs text-muted-foreground">Peso</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xl font-bold text-foreground">{profile?.height_cm || '--'}cm</p>
+            <p className="text-xs text-muted-foreground">Altura</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xl font-bold text-primary">
+              {goalLabels[profile?.fitness_goal as keyof typeof goalLabels] || '--'}
+            </p>
+            <p className="text-xs text-muted-foreground">Objetivo</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Menu */}
+      <div className="space-y-2 mb-6">
+        {menuItems.map((item, i) => (
+          <button
+            key={i}
+            className="w-full bg-card rounded-xl p-4 border border-border flex items-center gap-4"
+          >
+            <item.icon className="w-5 h-5 text-muted-foreground" />
+            <span className="flex-1 text-left font-medium text-foreground">{item.label}</span>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          </button>
+        ))}
+      </div>
+
+      {/* Sign Out */}
+      <Button
+        variant="outline"
+        className="w-full h-12 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+        onClick={handleSignOut}
+      >
+        <LogOut className="w-5 h-5 mr-2" />
+        Cerrar sesión
+      </Button>
+    </div>
+  );
+};
+
+export default ProfilePage;
