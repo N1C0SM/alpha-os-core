@@ -2,13 +2,15 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
-import { User, Target, Calendar, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { User, Target, Calendar, Settings, LogOut, ChevronRight, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { usePWAInstall } from '@/hooks/usePWAInstall';
 
 const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
+  const { isInstalled } = usePWAInstall();
 
   const handleSignOut = async () => {
     await signOut();
@@ -77,6 +79,18 @@ const ProfilePage: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* Install App Button */}
+      {!isInstalled && (
+        <button
+          onClick={() => navigate('/instalar')}
+          className="w-full bg-primary/10 rounded-xl p-4 border border-primary/20 flex items-center gap-4 hover:bg-primary/20 transition-colors mb-6"
+        >
+          <Download className="w-5 h-5 text-primary" />
+          <span className="flex-1 text-left font-medium text-foreground">Instalar app</span>
+          <ChevronRight className="w-5 h-5 text-primary" />
+        </button>
+      )}
 
       {/* Sign Out */}
       <Button

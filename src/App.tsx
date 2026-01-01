@@ -22,6 +22,7 @@ import PersonalDataPage from "./pages/PersonalDataPage";
 import GoalsPage from "./pages/GoalsPage";
 import SchedulePage from "./pages/SchedulePage";
 import SettingsPage from "./pages/SettingsPage";
+import InstallPage from "./pages/InstallPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/perfil/objetivos" element={<GoalsPage />} />
               <Route path="/perfil/horarios" element={<SchedulePage />} />
               <Route path="/perfil/config" element={<SettingsPage />} />
+              <Route path="/instalar" element={<InstallPage />} />
             </Route>
             
             {/* Catch-all */}
