@@ -13,6 +13,7 @@ import {
   useDeleteWorkoutDay,
   useUpdateWorkoutDay,
   useDeleteWorkoutPlanExercise,
+  useDeleteWorkoutPlan,
 } from '@/hooks/useWorkouts';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -55,6 +56,7 @@ const TrainingPage: React.FC = () => {
   const updateDay = useUpdateWorkoutDay();
   const deleteDay = useDeleteWorkoutDay();
   const deletePlanExercise = useDeleteWorkoutPlanExercise();
+  const deletePlan = useDeleteWorkoutPlan();
   const { toast } = useToast();
 
   const handleCreateRoutine = async () => {
@@ -144,6 +146,16 @@ const TrainingPage: React.FC = () => {
     }
   };
 
+  const handleDeleteRoutine = async (planId: string) => {
+    try {
+      await deletePlan.mutateAsync({ planId });
+      toast({ title: 'Rutina eliminada' });
+      setViewingRoutine(null);
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo eliminar la rutina', variant: 'destructive' });
+    }
+  };
+
   const currentRoutine = workoutPlans?.find(p => p.id === viewingRoutine);
 
   const filteredExercises = useMemo(() => {
@@ -179,11 +191,23 @@ const TrainingPage: React.FC = () => {
           </Button>
         </div>
         
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">{currentRoutine.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {currentRoutine.workout_plan_days?.length || 0} días de entreno
-          </p>
+        <div className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">{currentRoutine.name}</h1>
+            <p className="text-sm text-muted-foreground">
+              {currentRoutine.workout_plan_days?.length || 0} días de entreno
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-destructive"
+            onClick={() => handleDeleteRoutine(currentRoutine.id)}
+            disabled={deletePlan.isPending}
+            aria-label="Eliminar rutina"
+          >
+            <Trash2 className="w-5 h-5" />
+          </Button>
         </div>
 
         {/* Days list */}
