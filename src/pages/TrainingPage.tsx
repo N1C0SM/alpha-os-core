@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dumbbell, Play, History, Plus, Loader2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Dumbbell, Play, History, Plus, Loader2, ChevronDown, ChevronUp, Sparkles, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -21,8 +21,38 @@ const MUSCLE_GROUPS = [
   { id: 'core', name: 'Core' },
 ];
 
+const ROUTINE_TEMPLATES = [
+  {
+    id: 'push_pull_legs',
+    name: 'Push / Pull / Legs',
+    description: '6 días, 2 ciclos por semana',
+    days: ['Push (Pecho, Hombro, Tríceps)', 'Pull (Espalda, Bíceps)', 'Legs (Pierna)'],
+  },
+  {
+    id: 'upper_lower',
+    name: 'Upper / Lower',
+    description: '4 días, tren superior e inferior',
+    days: ['Upper (Tren Superior)', 'Lower (Tren Inferior)', 'Upper (Tren Superior)', 'Lower (Tren Inferior)'],
+  },
+  {
+    id: 'full_body',
+    name: 'Full Body',
+    description: '3 días, cuerpo completo',
+    days: ['Full Body A', 'Full Body B', 'Full Body C'],
+  },
+  {
+    id: 'bro_split',
+    name: 'Bro Split',
+    description: '5 días, un músculo por día',
+    days: ['Pecho', 'Espalda', 'Hombros', 'Brazos', 'Pierna'],
+  },
+];
+
+type CreateMode = 'select' | 'custom' | 'template';
+
 const TrainingPage: React.FC = () => {
   const [isNewPlanOpen, setIsNewPlanOpen] = useState(false);
+  const [createMode, setCreateMode] = useState<CreateMode>('select');
   const [isAddDayOpen, setIsAddDayOpen] = useState(false);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -33,6 +63,7 @@ const TrainingPage: React.FC = () => {
   const [newDayName, setNewDayName] = useState('');
   const [searchExercise, setSearchExercise] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
 
   const { data: workoutPlans, isLoading } = useWorkoutPlans();
   const { data: exercises } = useExercises();
@@ -41,17 +72,51 @@ const TrainingPage: React.FC = () => {
   const addExercise = useAddExerciseToPlan();
   const { toast } = useToast();
 
-  const handleCreatePlan = async () => {
+  const handleCreateCustomPlan = async () => {
     if (!newPlanName.trim()) return;
     try {
-      const plan = await createPlan.mutateAsync({ name: newPlanName });
+      const plan = await createPlan.mutateAsync({ name: newPlanName, split_type: 'custom' });
       setSelectedPlanId(plan.id);
       setNewPlanName('');
-      setIsNewPlanOpen(false);
+      resetDialog();
       toast({ title: 'Rutina creada', description: newPlanName });
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudo crear la rutina', variant: 'destructive' });
     }
+  };
+
+  const handleCreateFromTemplate = async (template: typeof ROUTINE_TEMPLATES[0]) => {
+    setIsCreatingTemplate(true);
+    try {
+      const plan = await createPlan.mutateAsync({ 
+        name: template.name, 
+        split_type: template.id as 'push_pull_legs' | 'upper_lower' | 'full_body' | 'bro_split',
+        days_per_week: template.days.length
+      });
+      
+      // Create all days for the template
+      for (let i = 0; i < template.days.length; i++) {
+        await createDay.mutateAsync({
+          workout_plan_id: plan.id,
+          name: template.days[i],
+          day_number: i + 1,
+        });
+      }
+      
+      setSelectedPlanId(plan.id);
+      resetDialog();
+      toast({ title: 'Rutina creada', description: `${template.name} con ${template.days.length} días` });
+    } catch (error) {
+      toast({ title: 'Error', description: 'No se pudo crear la rutina', variant: 'destructive' });
+    } finally {
+      setIsCreatingTemplate(false);
+    }
+  };
+
+  const resetDialog = () => {
+    setIsNewPlanOpen(false);
+    setCreateMode('select');
+    setNewPlanName('');
   };
 
   const handleCreateDay = async () => {
@@ -119,28 +184,107 @@ const TrainingPage: React.FC = () => {
       </div>
 
       {/* New Plan Dialog */}
-      <Dialog open={isNewPlanOpen} onOpenChange={setIsNewPlanOpen}>
+      <Dialog open={isNewPlanOpen} onOpenChange={(open) => {
+        if (!open) resetDialog();
+        else setIsNewPlanOpen(true);
+      }}>
         <DialogContent className="bg-card border-border">
           <DialogHeader>
             <DialogTitle>Nueva rutina</DialogTitle>
-            <DialogDescription>Crea una nueva rutina de entrenamiento</DialogDescription>
+            <DialogDescription>
+              {createMode === 'select' && 'Elige cómo crear tu rutina'}
+              {createMode === 'custom' && 'Escribe el nombre de tu rutina'}
+              {createMode === 'template' && 'Selecciona una plantilla'}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 pt-4">
-            <Input
-              placeholder="Nombre de la rutina (ej: PPL, Full Body...)"
-              value={newPlanName}
-              onChange={(e) => setNewPlanName(e.target.value)}
-              className="bg-secondary border-border"
-              autoFocus
-            />
-            <Button 
-              onClick={handleCreatePlan} 
-              className="w-full bg-primary text-primary-foreground"
-              disabled={!newPlanName.trim() || createPlan.isPending}
-            >
-              {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear rutina'}
-            </Button>
-          </div>
+          
+          {createMode === 'select' && (
+            <div className="grid grid-cols-2 gap-3 pt-4">
+              <button
+                onClick={() => setCreateMode('template')}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors border border-border"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Sparkles className="w-6 h-6 text-primary" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-foreground">Plantilla</p>
+                  <p className="text-xs text-muted-foreground">PPL, Upper/Lower...</p>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => setCreateMode('custom')}
+                className="flex flex-col items-center gap-3 p-5 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors border border-border"
+              >
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                  <PenLine className="w-6 h-6 text-primary" />
+                </div>
+                <div className="text-center">
+                  <p className="font-medium text-foreground">Personalizada</p>
+                  <p className="text-xs text-muted-foreground">Crea desde cero</p>
+                </div>
+              </button>
+            </div>
+          )}
+          
+          {createMode === 'custom' && (
+            <div className="space-y-4 pt-4">
+              <Input
+                placeholder="Nombre de la rutina"
+                value={newPlanName}
+                onChange={(e) => setNewPlanName(e.target.value)}
+                className="bg-secondary border-border"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline"
+                  onClick={() => setCreateMode('select')}
+                  className="flex-1"
+                >
+                  Atrás
+                </Button>
+                <Button 
+                  onClick={handleCreateCustomPlan} 
+                  className="flex-1 bg-primary text-primary-foreground"
+                  disabled={!newPlanName.trim() || createPlan.isPending}
+                >
+                  {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear'}
+                </Button>
+              </div>
+            </div>
+          )}
+          
+          {createMode === 'template' && (
+            <div className="space-y-3 pt-4">
+              {ROUTINE_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => handleCreateFromTemplate(template)}
+                  disabled={isCreatingTemplate}
+                  className="w-full flex items-center justify-between p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors border border-border text-left disabled:opacity-50"
+                >
+                  <div>
+                    <p className="font-medium text-foreground">{template.name}</p>
+                    <p className="text-xs text-muted-foreground">{template.description}</p>
+                  </div>
+                  {isCreatingTemplate ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                  ) : (
+                    <Plus className="w-5 h-5 text-primary" />
+                  )}
+                </button>
+              ))}
+              <Button 
+                variant="outline"
+                onClick={() => setCreateMode('select')}
+                className="w-full mt-2"
+              >
+                Atrás
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
