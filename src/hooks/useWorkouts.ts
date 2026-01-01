@@ -309,3 +309,43 @@ export const useDeleteWorkoutPlanExercise = () => {
     },
   });
 };
+
+export const useDeleteWorkoutPlan = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ planId }: { planId: string }) => {
+      // Get all days for this plan
+      const { data: days } = await supabase
+        .from('workout_plan_days')
+        .select('id')
+        .eq('workout_plan_id', planId);
+
+      // Delete exercises for each day
+      if (days && days.length > 0) {
+        const dayIds = days.map(d => d.id);
+        await supabase
+          .from('workout_plan_exercises')
+          .delete()
+          .in('workout_plan_day_id', dayIds);
+      }
+
+      // Delete all days
+      await supabase
+        .from('workout_plan_days')
+        .delete()
+        .eq('workout_plan_id', planId);
+
+      // Delete the plan itself
+      const { error } = await supabase
+        .from('workout_plans')
+        .delete()
+        .eq('id', planId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workout_plans'] });
+    },
+  });
+};
