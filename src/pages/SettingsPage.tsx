@@ -1,12 +1,13 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Moon, Sun, LogOut, Loader2, Clock, Dumbbell, Utensils, Droplets } from 'lucide-react';
+import { ArrowLeft, Bell, Moon, Sun, LogOut, Loader2, Dumbbell, Utensils, Droplets, Pill, CheckSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 import { usePreferences, useUpdatePreferences } from '@/hooks/usePreferences';
+import { useUserSchedule } from '@/hooks/useProfile';
 import { useNotifications, notificationScheduler } from '@/hooks/useNotifications';
 
 const SettingsPage: React.FC = () => {
@@ -15,6 +16,7 @@ const SettingsPage: React.FC = () => {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
   const { data: preferences, isLoading: prefsLoading } = usePreferences();
+  const { data: schedule } = useUserSchedule();
   const updatePreferences = useUpdatePreferences();
   const { permission, requestPermission, isSupported, sendNotification } = useNotifications();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -24,30 +26,136 @@ const SettingsPage: React.FC = () => {
     setMounted(true);
   }, []);
 
-  // Schedule notifications when preferences change
+  // Parse time string to hours and minutes
+  const parseTime = (timeStr: string | null | undefined): { hour: number; minute: number } => {
+    if (!timeStr) return { hour: 8, minute: 0 };
+    const [hour, minute] = timeStr.split(':').map(Number);
+    return { hour: hour || 8, minute: minute || 0 };
+  };
+
+  // Schedule notifications based on user schedule
   useEffect(() => {
     if (preferences?.notifications_enabled && permission === 'granted') {
-      // Schedule daily reminders
+      // Workout reminder - based on user's workout time
+      const workoutTime = parseTime(schedule?.workout_time);
       notificationScheduler.scheduleDaily(
         'workout-reminder',
-        18, 0, // 6:00 PM
+        workoutTime.hour,
+        workoutTime.minute,
         '💪 Hora de entrenar',
         '¿Listo para tu entreno de hoy?'
       );
-      
+
+      // Morning supplements - at wake time
+      const wakeTime = parseTime(schedule?.wake_time);
       notificationScheduler.scheduleDaily(
-        'hydration-reminder',
-        10, 0, // 10:00 AM
+        'supplements-morning',
+        wakeTime.hour,
+        wakeTime.minute + 30, // 30 min after waking
+        '💊 Suplementos de mañana',
+        'No olvides tus suplementos matutinos'
+      );
+
+      // Pre-workout supplements - 30 min before workout
+      const preWorkoutHour = workoutTime.minute >= 30 
+        ? workoutTime.hour 
+        : workoutTime.hour - 1;
+      const preWorkoutMinute = workoutTime.minute >= 30 
+        ? workoutTime.minute - 30 
+        : workoutTime.minute + 30;
+      notificationScheduler.scheduleDaily(
+        'supplements-preworkout',
+        preWorkoutHour,
+        preWorkoutMinute,
+        '⚡ Pre-entreno',
+        'Toma tu pre-entreno ahora'
+      );
+
+      // Post-workout supplements - 30 min after workout
+      notificationScheduler.scheduleDaily(
+        'supplements-postworkout',
+        workoutTime.hour + 1,
+        workoutTime.minute,
+        '🥤 Post-entreno',
+        'Hora del batido y suplementos post-entreno'
+      );
+
+      // Night supplements - before sleep
+      const sleepTime = parseTime(schedule?.sleep_time);
+      notificationScheduler.scheduleDaily(
+        'supplements-night',
+        sleepTime.hour - 1,
+        sleepTime.minute,
+        '🌙 Suplementos nocturnos',
+        'No olvides tus suplementos antes de dormir'
+      );
+
+      // Habits reminder - mid morning
+      notificationScheduler.scheduleDaily(
+        'habits-morning',
+        9, 0,
+        '✅ Revisa tus hábitos',
+        'Empieza el día completando tus hábitos'
+      );
+
+      // Habits reminder - evening
+      notificationScheduler.scheduleDaily(
+        'habits-evening',
+        20, 0,
+        '✅ Hábitos del día',
+        '¿Has completado todos tus hábitos hoy?'
+      );
+
+      // Hydration reminders
+      notificationScheduler.scheduleDaily(
+        'hydration-1',
+        10, 0,
         '💧 Hidratación',
-        'Recuerda beber agua regularmente'
+        'Recuerda beber agua'
       );
 
       notificationScheduler.scheduleDaily(
-        'hydration-reminder-2',
-        15, 0, // 3:00 PM
+        'hydration-2',
+        13, 0,
         '💧 Hidratación',
-        '¿Has bebido suficiente agua hoy?'
+        '¿Has bebido suficiente agua?'
       );
+
+      notificationScheduler.scheduleDaily(
+        'hydration-3',
+        16, 0,
+        '💧 Hidratación',
+        'Mantén tu hidratación'
+      );
+
+      // Meal reminders based on schedule
+      const breakfastTime = parseTime(schedule?.breakfast_time);
+      notificationScheduler.scheduleDaily(
+        'meal-breakfast',
+        breakfastTime.hour,
+        breakfastTime.minute,
+        '🍳 Desayuno',
+        'Hora de desayunar'
+      );
+
+      const lunchTime = parseTime(schedule?.lunch_time);
+      notificationScheduler.scheduleDaily(
+        'meal-lunch',
+        lunchTime.hour,
+        lunchTime.minute,
+        '🥗 Almuerzo',
+        'Hora de almorzar'
+      );
+
+      const dinnerTime = parseTime(schedule?.dinner_time);
+      notificationScheduler.scheduleDaily(
+        'meal-dinner',
+        dinnerTime.hour,
+        dinnerTime.minute,
+        '🍽️ Cena',
+        'Hora de cenar'
+      );
+
     } else {
       notificationScheduler.cancelAll();
     }
@@ -55,7 +163,7 @@ const SettingsPage: React.FC = () => {
     return () => {
       notificationScheduler.cancelAll();
     };
-  }, [preferences?.notifications_enabled, permission]);
+  }, [preferences?.notifications_enabled, permission, schedule]);
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
@@ -74,10 +182,9 @@ const SettingsPage: React.FC = () => {
 
   const handleNotificationsChange = async (enabled: boolean) => {
     if (enabled) {
-      // Request permission first
       const granted = await requestPermission();
       if (!granted) {
-        return; // Don't save preference if permission denied
+        return;
       }
     }
 
@@ -109,6 +216,12 @@ const SettingsPage: React.FC = () => {
 
   const isDark = theme === 'dark';
   const notificationsEnabled = preferences?.notifications_enabled ?? true;
+
+  // Format time for display
+  const formatTimeDisplay = (timeStr: string | null | undefined): string => {
+    if (!timeStr) return '--:--';
+    return timeStr.substring(0, 5);
+  };
 
   if (prefsLoading) {
     return (
@@ -152,7 +265,7 @@ const SettingsPage: React.FC = () => {
                       ? 'No soportado en este navegador' 
                       : permission === 'denied' 
                         ? 'Bloqueadas en el navegador'
-                        : 'Recordatorios y alertas'}
+                        : 'Recordatorios personalizados'}
                   </p>
                 </div>
               </div>
@@ -164,29 +277,79 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Notification types info */}
+          {/* Notification details */}
           {notificationsEnabled && permission === 'granted' && (
-            <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+            <div className="bg-card rounded-xl border border-border p-4 space-y-4">
               <p className="text-sm font-medium text-foreground">Recibirás recordatorios de:</p>
               
-              <div className="flex items-center gap-3 text-sm">
-                <Dumbbell className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground">Entreno diario (18:00)</span>
-              </div>
-              
-              <div className="flex items-center gap-3 text-sm">
-                <Droplets className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground">Hidratación (10:00 y 15:00)</span>
+              {/* Training */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Dumbbell className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-foreground">Entreno</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {formatTimeDisplay(schedule?.workout_time)}
+                </span>
               </div>
 
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full mt-2"
-                onClick={handleTestNotification}
-              >
-                Probar notificación
-              </Button>
+              {/* Supplements */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Pill className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-foreground">Suplementos</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  Mañana, pre/post, noche
+                </span>
+              </div>
+
+              {/* Habits */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <CheckSquare className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-foreground">Hábitos</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  09:00 y 20:00
+                </span>
+              </div>
+
+              {/* Meals */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Utensils className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-foreground">Comidas</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {formatTimeDisplay(schedule?.breakfast_time)}, {formatTimeDisplay(schedule?.lunch_time)}, {formatTimeDisplay(schedule?.dinner_time)}
+                </span>
+              </div>
+              
+              {/* Hydration */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Droplets className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-foreground">Hidratación</span>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  10:00, 13:00, 16:00
+                </span>
+              </div>
+
+              <div className="pt-2 space-y-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={handleTestNotification}
+                >
+                  Probar notificación
+                </Button>
+                <p className="text-xs text-muted-foreground text-center">
+                  Los horarios se basan en tu configuración de horarios
+                </p>
+              </div>
             </div>
           )}
 
