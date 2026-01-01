@@ -1,17 +1,25 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Moon, LogOut, Loader2 } from 'lucide-react';
+import { ArrowLeft, Bell, Moon, Sun, LogOut, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from 'next-themes';
 
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [notifications, setNotifications] = React.useState(true);
+  const [mounted, setMounted] = React.useState(false);
+
+  // Avoid hydration mismatch
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleSignOut = async () => {
     setIsLoggingOut(true);
@@ -23,6 +31,12 @@ const SettingsPage: React.FC = () => {
       setIsLoggingOut(false);
     }
   };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const isDark = theme === 'dark';
 
   return (
     <div className="px-4 py-6 safe-top">
@@ -62,14 +76,25 @@ const SettingsPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Moon className="w-5 h-5 text-primary" />
+                {mounted && isDark ? (
+                  <Moon className="w-5 h-5 text-primary" />
+                ) : (
+                  <Sun className="w-5 h-5 text-primary" />
+                )}
               </div>
               <div>
                 <p className="font-medium text-foreground">Tema oscuro</p>
-                <p className="text-sm text-muted-foreground">Apariencia de la app</p>
+                <p className="text-sm text-muted-foreground">
+                  {mounted ? (isDark ? 'Activado' : 'Desactivado') : 'Cargando...'}
+                </p>
               </div>
             </div>
-            <Switch checked={true} disabled />
+            {mounted && (
+              <Switch 
+                checked={isDark} 
+                onCheckedChange={toggleTheme}
+              />
+            )}
           </div>
         </div>
 
