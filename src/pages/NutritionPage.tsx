@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import SupplementsSection from '@/components/nutrition/SupplementsSection';
 
 const NutritionPage: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
@@ -255,6 +256,11 @@ const NutritionPage: React.FC = () => {
             </Button>
           ))}
         </div>
+      </div>
+
+      {/* Supplements */}
+      <div className="mb-6">
+        <SupplementsSection />
       </div>
 
       {/* Meals */}
