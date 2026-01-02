@@ -1,8 +1,9 @@
 import React from 'react';
-import { useProfile, useUserPreferences } from '@/hooks/useProfile';
+import { useProfile, useUserPreferences, useUserSchedule } from '@/hooks/useProfile';
 import { generateDailyPlan } from '@/services/decision-engine';
 import { Battery, Dumbbell, Utensils, Droplets, Pill, Moon, Star, Loader2, Check, ChevronRight } from 'lucide-react';
 import { useSupplementRecommendations, useSupplementLogs } from '@/hooks/useSupplements';
+import { useWorkoutPlans } from '@/hooks/useWorkouts';
 import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
 import { useNavigate } from 'react-router-dom';
@@ -12,6 +13,8 @@ const TodayPage: React.FC = () => {
   const navigate = useNavigate();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: preferences } = useUserPreferences();
+  const { data: schedule } = useUserSchedule();
+  const { data: workoutPlans } = useWorkoutPlans();
   const today = format(new Date(), 'yyyy-MM-dd');
   const { data: recommendations } = useSupplementRecommendations();
   const { data: logs } = useSupplementLogs(today);
@@ -28,6 +31,21 @@ const TodayPage: React.FC = () => {
   const totalSupplements = recommendations?.recommendations?.length || 0;
   const progressPercent = totalSupplements > 0 ? (takenCount / totalSupplements) * 100 : 0;
 
+  // Get today's workout from active plan
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const todayDayName = dayNames[new Date().getDay()];
+  const preferredDays = schedule?.preferred_workout_days || ['monday', 'tuesday', 'thursday', 'friday'];
+  const isWorkoutDay = preferredDays.includes(todayDayName);
+  
+  // Find which workout day number today corresponds to
+  const activePlan = workoutPlans?.[0];
+  const workoutDayIndex = preferredDays.indexOf(todayDayName);
+  const todayWorkoutDay = activePlan?.workout_plan_days
+    ?.sort((a: any, b: any) => a.day_number - b.day_number)
+    ?.[workoutDayIndex];
+  
+  const workoutName = todayWorkoutDay?.name || (isWorkoutDay ? 'Entrenamiento' : 'Día de descanso');
+
   // Generate daily plan based on user data
   const plan = generateDailyPlan({
     sleepHours: 7,
@@ -38,9 +56,9 @@ const TodayPage: React.FC = () => {
     weightKg: Number(profile?.weight_kg) || 75,
     fitnessGoal: (profile?.fitness_goal as any) || 'muscle_gain',
     experienceLevel: (profile?.experience_level as any) || 'beginner',
-    isWorkoutDay: true,
+    isWorkoutDay,
     dayOfWeek: new Date().getDay(),
-    workoutDaysPerWeek: 4,
+    workoutDaysPerWeek: schedule?.workout_days_per_week || 4,
     hydrationProgress: 40,
     mealsCompleted: 1,
     totalMeals: 5,
@@ -78,15 +96,23 @@ const TodayPage: React.FC = () => {
       </div>
 
       {/* Training Card */}
-      <div className="bg-card rounded-2xl p-5 mb-4 border border-border">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="p-2 rounded-lg bg-primary/20">
-            <Dumbbell className="w-5 h-5 text-primary" />
+      <div 
+        onClick={() => navigate('/entreno')}
+        className="bg-card rounded-2xl p-5 mb-4 border border-border cursor-pointer active:scale-[0.98] transition-transform"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/20">
+              <Dumbbell className="w-5 h-5 text-primary" />
+            </div>
+            <h3 className="font-semibold text-foreground">Entrenamiento</h3>
           </div>
-          <h3 className="font-semibold text-foreground">Entrenamiento</h3>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </div>
-        <p className="text-foreground font-medium">{plan.training.recommendation === 'full_workout' ? 'Push Day - Pecho y Tríceps' : plan.training.recommendation}</p>
-        <p className="text-sm text-muted-foreground mt-1">{plan.training.reason}</p>
+        <p className="text-foreground font-medium">{workoutName}</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {isWorkoutDay ? plan.training.reason : 'Hoy toca recuperar para volver más fuerte'}
+        </p>
       </div>
 
       {/* Quick Stats Grid */}
