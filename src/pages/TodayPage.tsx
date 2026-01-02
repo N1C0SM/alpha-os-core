@@ -1,12 +1,18 @@
 import React from 'react';
 import { useProfile, useUserPreferences } from '@/hooks/useProfile';
 import { generateDailyPlan } from '@/services/decision-engine';
-import { Battery, Dumbbell, Utensils, Droplets, Pill, Moon, Star, Loader2 } from 'lucide-react';
+import { Battery, Dumbbell, Utensils, Droplets, Pill, Moon, Star, Loader2, Check } from 'lucide-react';
+import { useSupplementRecommendations, useSupplementLogs } from '@/hooks/useSupplements';
+import { format } from 'date-fns';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 const TodayPage: React.FC = () => {
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: preferences } = useUserPreferences();
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const { data: recommendations } = useSupplementRecommendations();
+  const { data: logs } = useSupplementLogs(today);
 
   if (profileLoading) {
     return (
@@ -15,6 +21,10 @@ const TodayPage: React.FC = () => {
       </div>
     );
   }
+
+  const takenCount = logs?.filter(l => l.taken)?.length || 0;
+  const totalSupplements = recommendations?.recommendations?.length || 0;
+  const progressPercent = totalSupplements > 0 ? (takenCount / totalSupplements) * 100 : 0;
 
   // Generate daily plan based on user data
   const plan = generateDailyPlan({
@@ -98,6 +108,37 @@ const TodayPage: React.FC = () => {
           <Moon className="w-5 h-5 text-indigo-400 mb-2" />
           <p className="text-xs text-muted-foreground">Dormir</p>
           <p className="text-lg font-bold text-foreground">23:00</p>
+        </div>
+      </div>
+
+      {/* Supplements Summary */}
+      <div className="bg-card rounded-2xl p-5 mb-4 border border-border">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-purple-500/20">
+              <Pill className="w-5 h-5 text-purple-400" />
+            </div>
+            <h3 className="font-semibold text-foreground">Suplementos</h3>
+          </div>
+          <span className="text-sm text-muted-foreground">{takenCount}/{totalSupplements}</span>
+        </div>
+        <Progress value={progressPercent} className="h-2 mb-3" />
+        <div className="flex flex-wrap gap-2">
+          {recommendations?.recommendations?.slice(0, 4).map((supp, i) => {
+            const isTaken = logs?.some(l => l.timing === supp.timing && l.taken);
+            return (
+              <div 
+                key={i} 
+                className={cn(
+                  "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs",
+                  isTaken ? "bg-success/20 text-success" : "bg-secondary text-muted-foreground"
+                )}
+              >
+                {isTaken && <Check className="w-3 h-3" />}
+                {supp.name}
+              </div>
+            );
+          })}
         </div>
       </div>
 
