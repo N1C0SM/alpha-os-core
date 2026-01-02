@@ -1,13 +1,15 @@
 import React from 'react';
 import { useProfile, useUserPreferences } from '@/hooks/useProfile';
 import { generateDailyPlan } from '@/services/decision-engine';
-import { Battery, Dumbbell, Utensils, Droplets, Pill, Moon, Star, Loader2, Check } from 'lucide-react';
+import { Battery, Dumbbell, Utensils, Droplets, Pill, Moon, Star, Loader2, Check, ChevronRight } from 'lucide-react';
 import { useSupplementRecommendations, useSupplementLogs } from '@/hooks/useSupplements';
 import { format } from 'date-fns';
 import { Progress } from '@/components/ui/progress';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 const TodayPage: React.FC = () => {
+  const navigate = useNavigate();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: preferences } = useUserPreferences();
   const today = format(new Date(), 'yyyy-MM-dd');
@@ -112,7 +114,10 @@ const TodayPage: React.FC = () => {
       </div>
 
       {/* Supplements Summary */}
-      <div className="bg-card rounded-2xl p-5 mb-4 border border-border">
+      <div 
+        onClick={() => navigate('/nutricion')}
+        className="bg-card rounded-2xl p-5 mb-4 border border-border cursor-pointer active:scale-[0.98] transition-transform"
+      >
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-purple-500/20">
@@ -120,7 +125,10 @@ const TodayPage: React.FC = () => {
             </div>
             <h3 className="font-semibold text-foreground">Suplementos</h3>
           </div>
-          <span className="text-sm text-muted-foreground">{takenCount}/{totalSupplements}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">{takenCount}/{totalSupplements}</span>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </div>
         </div>
         <Progress value={progressPercent} className="h-2 mb-3" />
         <div className="flex flex-wrap gap-2">
