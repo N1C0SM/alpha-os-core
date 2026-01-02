@@ -5,6 +5,7 @@ import { Battery, Dumbbell, Utensils, Droplets, Pill, Moon, Star, Loader2, Check
 import { useSupplementRecommendations, useSupplementLogs } from '@/hooks/useSupplements';
 import { useWorkoutPlans } from '@/hooks/useWorkouts';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { Progress } from '@/components/ui/progress';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -72,8 +73,8 @@ const TodayPage: React.FC = () => {
     <div className="px-4 py-6 safe-top">
       {/* Header */}
       <div className="mb-6">
-        <p className="text-muted-foreground">Hola, {profile?.full_name?.split(' ')[0] || 'Atleta'}</p>
-        <h1 className="text-2xl font-bold text-foreground">Tu día de hoy</h1>
+        <p className="text-muted-foreground capitalize">{format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}</p>
+        <h1 className="text-2xl font-bold text-foreground">Hola, {profile?.full_name?.split(' ')[0] || 'Atleta'}</h1>
       </div>
 
       {/* Energy Card */}
