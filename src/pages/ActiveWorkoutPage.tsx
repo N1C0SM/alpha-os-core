@@ -7,12 +7,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useExercises, useLogExercise, useCompleteWorkoutSession } from '@/hooks/useWorkouts';
 import { useMultipleExercisesLastPerformance } from '@/hooks/useExerciseHistory';
+import { usePersonalRecords, calculate1RM } from '@/hooks/usePersonalRecords';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import PostWorkoutSummary from '@/components/workout/PostWorkoutSummary';
 import RestTimer from '@/components/workout/RestTimer';
 import WarmupGenerator from '@/components/workout/WarmupGenerator';
+import PlateCalculator from '@/components/workout/PlateCalculator';
+import OneRMCalculator from '@/components/workout/OneRMCalculator';
+import PRCelebration from '@/components/workout/PRCelebration';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -56,6 +60,13 @@ const ActiveWorkoutPage: React.FC = () => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [showPostWorkout, setShowPostWorkout] = useState(false);
   const [workoutDuration, setWorkoutDuration] = useState(0);
+  const [prCelebration, setPrCelebration] = useState<{
+    exerciseName: string;
+    weight: number;
+    reps: number;
+    estimated1RM: number;
+    previousBest?: number;
+  } | null>(null);
 
   const { data: allExercises } = useExercises();
   const { data: profile } = useProfile();
@@ -66,6 +77,7 @@ const ActiveWorkoutPage: React.FC = () => {
   // Get exercise IDs for history lookup
   const exerciseIds = useMemo(() => exercises.map(e => e.exerciseId), [exercises]);
   const { data: exerciseHistory } = useMultipleExercisesLastPerformance(exerciseIds);
+  const { data: personalRecords } = usePersonalRecords();
 
   // Timer
   useEffect(() => {
@@ -142,6 +154,28 @@ const ActiveWorkoutPage: React.FC = () => {
   };
 
   const handleToggleSetComplete = (exerciseIdx: number, setIdx: number) => {
+    const exercise = exercises[exerciseIdx];
+    const set = exercise.sets[setIdx];
+    
+    // If completing the set (not uncompleting), check for PR
+    if (!set.completed && set.weight && set.reps) {
+      const weight = parseFloat(set.weight);
+      const reps = parseInt(set.reps);
+      const new1RM = calculate1RM(weight, reps);
+      const currentPR = personalRecords?.[exercise.exerciseId];
+      
+      if (!currentPR || new1RM > currentPR.estimated1RM) {
+        // It's a PR! Show celebration
+        setPrCelebration({
+          exerciseName: exercise.name,
+          weight,
+          reps,
+          estimated1RM: new1RM,
+          previousBest: currentPR?.estimated1RM,
+        });
+      }
+    }
+
     setExercises(prev => {
       const updated = [...prev];
       updated[exerciseIdx].sets[setIdx].completed = !updated[exerciseIdx].sets[setIdx].completed;
@@ -224,7 +258,20 @@ const ActiveWorkoutPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <>
+      {/* PR Celebration Modal */}
+      {prCelebration && (
+        <PRCelebration
+          exerciseName={prCelebration.exerciseName}
+          weight={prCelebration.weight}
+          reps={prCelebration.reps}
+          estimated1RM={prCelebration.estimated1RM}
+          previousBest={prCelebration.previousBest}
+          onClose={() => setPrCelebration(null)}
+        />
+      )}
+      
+      <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3 safe-top">
         <div className="flex items-center justify-between">
@@ -276,9 +323,11 @@ const ActiveWorkoutPage: React.FC = () => {
               Añadir ejercicio
             </Button>
             
-            {/* Warmup Generator */}
-            <div className="w-full max-w-sm">
+            {/* Tools */}
+            <div className="w-full max-w-sm space-y-3">
               <WarmupGenerator />
+              <OneRMCalculator />
+              <PlateCalculator />
             </div>
           </div>
         ) : (
@@ -520,7 +569,8 @@ const ActiveWorkoutPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </>
   );
 };
 
