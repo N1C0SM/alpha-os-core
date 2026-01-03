@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { User, Target, Calendar, Settings, LogOut, ChevronRight, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
+import ProgressPhotosSection from '@/components/profile/ProgressPhotosSection';
 
 const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -63,6 +64,11 @@ const ProfilePage: React.FC = () => {
             <p className="text-xs text-muted-foreground">Objetivo</p>
           </div>
         </div>
+      </div>
+
+      {/* Progress Photos */}
+      <div className="mb-6">
+        <ProgressPhotosSection />
       </div>
 
       {/* Menu */}
