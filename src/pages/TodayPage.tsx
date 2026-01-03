@@ -32,18 +32,19 @@ const TodayPage: React.FC = () => {
   const totalSupplements = recommendations?.recommendations?.length || 0;
   const progressPercent = totalSupplements > 0 ? (takenCount / totalSupplements) * 100 : 0;
 
-  // Get today's workout from active plan
+  // Get today's workout from active plan based on assigned_weekday
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const todayDayName = dayNames[new Date().getDay()];
-  const preferredDays = schedule?.preferred_workout_days || ['monday', 'tuesday', 'thursday', 'friday'];
-  const isWorkoutDay = preferredDays.includes(todayDayName);
   
-  // Find which workout day number today corresponds to
+  // Find the workout day assigned to today
   const activePlan = workoutPlans?.[0];
-  const workoutDayIndex = preferredDays.indexOf(todayDayName);
-  const todayWorkoutDay = activePlan?.workout_plan_days
-    ?.sort((a: any, b: any) => a.day_number - b.day_number)
-    ?.[workoutDayIndex];
+  const todayWorkoutDay = activePlan?.workout_plan_days?.find(
+    (day: any) => day.assigned_weekday === todayDayName
+  );
+  
+  // Fallback to preferred days if no assignment found
+  const preferredDays = schedule?.preferred_workout_days || ['monday', 'tuesday', 'thursday', 'friday'];
+  const isWorkoutDay = todayWorkoutDay ? true : preferredDays.includes(todayDayName);
   
   const workoutName = todayWorkoutDay?.name || (isWorkoutDay ? 'Entrenamiento' : 'Día de descanso');
 
