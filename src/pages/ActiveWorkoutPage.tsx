@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useExercises, useLogExercise, useCompleteWorkoutSession } from '@/hooks/useWorkouts';
+import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import PostWorkoutSummary from '@/components/workout/PostWorkoutSummary';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -49,8 +51,11 @@ const ActiveWorkoutPage: React.FC = () => {
   const [searchExercise, setSearchExercise] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [showPostWorkout, setShowPostWorkout] = useState(false);
+  const [workoutDuration, setWorkoutDuration] = useState(0);
 
   const { data: allExercises } = useExercises();
+  const { data: profile } = useProfile();
   const logExercise = useLogExercise();
   const completeSession = useCompleteWorkoutSession();
   const { toast } = useToast();
@@ -175,8 +180,9 @@ const ActiveWorkoutPage: React.FC = () => {
       // Complete the session
       await completeSession.mutateAsync({ sessionId });
       
-      toast({ title: '¡Entreno completado!' });
-      navigate('/entreno');
+      // Save duration and show post-workout summary
+      setWorkoutDuration(Math.floor(elapsedTime / 60));
+      setShowPostWorkout(true);
     } catch (error) {
       toast({ title: 'Error al guardar', variant: 'destructive' });
     }
@@ -186,10 +192,29 @@ const ActiveWorkoutPage: React.FC = () => {
     navigate('/entreno');
   };
 
+  const handleClosePostWorkout = () => {
+    toast({ title: '¡Entreno completado!' });
+    navigate('/entreno');
+  };
+
   const totalCompletedSets = exercises.reduce(
     (acc, ex) => acc + ex.sets.filter(s => s.completed).length,
     0
   );
+
+  // Show post-workout summary
+  if (showPostWorkout) {
+    return (
+      <PostWorkoutSummary
+        durationMinutes={workoutDuration}
+        exerciseCount={exercises.length}
+        totalSets={totalCompletedSets}
+        fitnessGoal={(profile?.fitness_goal as 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance') || 'muscle_gain'}
+        bodyWeightKg={profile?.weight_kg || 75}
+        onClose={handleClosePostWorkout}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
