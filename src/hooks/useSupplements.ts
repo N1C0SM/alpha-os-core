@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useProfile } from './useProfile';
+import { useProfile, useUserSchedule } from './useProfile';
 import { usePreferences } from './usePreferences';
 import { supplementDecision, type SupplementRecommendation } from '@/services/decision-engine/supplement-decision';
 
@@ -24,20 +24,21 @@ export const useSupplements = () => {
 export const useSupplementRecommendations = () => {
   const { data: profile } = useProfile();
   const { data: preferences } = usePreferences();
+  const { data: schedule } = useUserSchedule();
 
   // Get today's day of week to determine if workout day
-  const today = new Date().getDay();
-  const workoutDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-  const todayName = workoutDays[today === 0 ? 6 : today - 1]; // Adjust for JS Sunday = 0
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const todayName = dayNames[new Date().getDay()];
 
   return useQuery({
-    queryKey: ['supplement_recommendations', profile?.fitness_goal, preferences?.sleep_quality],
+    queryKey: ['supplement_recommendations', profile?.fitness_goal, preferences?.sleep_quality, schedule?.preferred_workout_days, todayName],
     queryFn: () => {
       const fitnessGoal = profile?.fitness_goal || 'muscle_gain';
       const sleepQuality = preferences?.sleep_quality || 7;
       
-      // Simple workout day check (could be enhanced with user_schedules)
-      const isWorkoutDay = ['monday', 'tuesday', 'thursday', 'friday'].includes(todayName);
+      // Use user's actual workout days from schedule
+      const preferredDays = schedule?.preferred_workout_days || ['monday', 'tuesday', 'thursday', 'friday'];
+      const isWorkoutDay = preferredDays.includes(todayName);
 
       return supplementDecision({
         fitnessGoal: fitnessGoal as 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance',
