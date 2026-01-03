@@ -1,7 +1,8 @@
-import React from 'react';
-import { Droplets, Utensils, Pill, Moon, ExternalLink, Clock, Dumbbell, TrendingUp } from 'lucide-react';
+import React, { useState } from 'react';
+import { Droplets, Utensils, Pill, Moon, ExternalLink, Clock, Dumbbell, TrendingUp, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { recoveryDecision, type RecoveryRecommendation } from '@/services/decision-engine/recovery-decision';
+import ShareWorkoutModal from './ShareWorkoutModal';
 
 interface PostWorkoutSummaryProps {
   durationMinutes: number;
@@ -10,6 +11,8 @@ interface PostWorkoutSummaryProps {
   fitnessGoal: 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance';
   bodyWeightKg: number;
   onClose: () => void;
+  newPRs?: number;
+  workoutName?: string;
 }
 
 const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
@@ -19,7 +22,10 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
   fitnessGoal,
   bodyWeightKg,
   onClose,
+  newPRs = 0,
+  workoutName,
 }) => {
+  const [showShare, setShowShare] = useState(false);
   const recommendations = recoveryDecision({
     workoutDurationMinutes: durationMinutes,
     exerciseCount,
@@ -195,13 +201,34 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
         </p>
       </div>
 
-      {/* Close button */}
-      <Button 
-        onClick={onClose}
-        className="w-full h-14 bg-primary text-primary-foreground text-base font-semibold"
-      >
-        ¡Entendido!
-      </Button>
+      {/* Action buttons */}
+      <div className="flex gap-3">
+        <Button 
+          variant="outline"
+          onClick={() => setShowShare(true)}
+          className="flex-1 h-14 text-base font-semibold"
+        >
+          <Share2 className="w-5 h-5 mr-2" />
+          Compartir
+        </Button>
+        <Button 
+          onClick={onClose}
+          className="flex-1 h-14 bg-primary text-primary-foreground text-base font-semibold"
+        >
+          ¡Entendido!
+        </Button>
+      </div>
+
+      {/* Share Modal */}
+      <ShareWorkoutModal
+        isOpen={showShare}
+        onClose={() => setShowShare(false)}
+        durationMinutes={durationMinutes}
+        exerciseCount={exerciseCount}
+        totalSets={totalSets}
+        newPRs={newPRs}
+        workoutName={workoutName}
+      />
     </div>
   );
 };
