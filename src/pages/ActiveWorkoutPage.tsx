@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import PostWorkoutSummary from '@/components/workout/PostWorkoutSummary';
 import RestTimer from '@/components/workout/RestTimer';
+import WarmupGenerator from '@/components/workout/WarmupGenerator';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -267,13 +268,18 @@ const ActiveWorkoutPage: React.FC = () => {
       {/* Exercise list */}
       <div className="flex-1 overflow-auto px-4 py-4 pb-24">
         {exercises.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex flex-col items-center justify-center py-8 text-center">
             <Dumbbell className="w-12 h-12 text-muted-foreground/50 mb-4" />
             <p className="text-muted-foreground mb-4">No hay ejercicios aún</p>
-            <Button onClick={() => setIsAddExerciseOpen(true)} className="bg-primary text-primary-foreground">
+            <Button onClick={() => setIsAddExerciseOpen(true)} className="bg-primary text-primary-foreground mb-6">
               <Plus className="w-4 h-4 mr-2" />
               Añadir ejercicio
             </Button>
+            
+            {/* Warmup Generator */}
+            <div className="w-full max-w-sm">
+              <WarmupGenerator />
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
