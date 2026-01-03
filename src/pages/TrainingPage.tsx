@@ -376,35 +376,39 @@ const TrainingPage: React.FC = () => {
                   </Button>
                 </div>
 
-                {/* Weekday assignment */}
-                <div className="flex items-center gap-2 mb-3">
+                {/* Weekday assignment - multi-select chips */}
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <CalendarDays className="w-4 h-4 text-muted-foreground" />
-                  <Select
-                    value={(day as any).assigned_weekday || 'none'}
-                    onValueChange={(value) => {
-                      updateDay.mutate({ 
-                        dayId: day.id, 
-                        assignedWeekday: value === 'none' ? null : value 
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="h-8 w-auto bg-secondary border-border text-sm">
-                      <SelectValue placeholder="Asignar día" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin asignar</SelectItem>
-                      {WEEKDAYS.map((wd) => (
-                        <SelectItem key={wd.id} value={wd.id}>
-                          {wd.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {(day as any).assigned_weekday && (
-                    <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
-                      {WEEKDAYS.find(w => w.id === (day as any).assigned_weekday)?.name}
-                    </span>
-                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {WEEKDAYS.map((wd) => {
+                      const assignedDays = (day as any).assigned_weekdays || [];
+                      const isSelected = assignedDays.includes(wd.id);
+                      return (
+                        <button
+                          key={wd.id}
+                          type="button"
+                          onClick={() => {
+                            const currentDays = [...(assignedDays as string[])];
+                            const newDays = isSelected
+                              ? currentDays.filter(d => d !== wd.id)
+                              : [...currentDays, wd.id];
+                            updateDay.mutate({ 
+                              dayId: day.id, 
+                              assignedWeekdays: newDays.length > 0 ? newDays : null 
+                            });
+                          }}
+                          className={cn(
+                            "px-2 py-1 text-xs rounded-full border transition-colors",
+                            isSelected
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-secondary/50 text-muted-foreground border-border hover:border-primary/50"
+                          )}
+                        >
+                          {wd.short}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 {day.workout_plan_exercises && day.workout_plan_exercises.length > 0 ? (

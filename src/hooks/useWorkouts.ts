@@ -250,10 +250,10 @@ export const useUpdateWorkoutDay = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ dayId, name, assignedWeekday }: { dayId: string; name?: string; assignedWeekday?: string | null }) => {
+    mutationFn: async ({ dayId, name, assignedWeekdays }: { dayId: string; name?: string; assignedWeekdays?: string[] | null }) => {
       const updateData: Record<string, any> = {};
       if (name !== undefined) updateData.name = name;
-      if (assignedWeekday !== undefined) updateData.assigned_weekday = assignedWeekday;
+      if (assignedWeekdays !== undefined) updateData.assigned_weekdays = assignedWeekdays;
 
       const { data, error } = await supabase
         .from('workout_plan_days')

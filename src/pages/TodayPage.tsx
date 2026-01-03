@@ -32,14 +32,14 @@ const TodayPage: React.FC = () => {
   const totalSupplements = recommendations?.recommendations?.length || 0;
   const progressPercent = totalSupplements > 0 ? (takenCount / totalSupplements) * 100 : 0;
 
-  // Get today's workout from active plan based on assigned_weekday
+  // Get today's workout from active plan based on assigned_weekdays (array)
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const todayDayName = dayNames[new Date().getDay()];
   
-  // Find the workout day assigned to today
+  // Find the workout day assigned to today (check if today is in assigned_weekdays array)
   const activePlan = workoutPlans?.[0];
   const todayWorkoutDay = activePlan?.workout_plan_days?.find(
-    (day: any) => day.assigned_weekday === todayDayName
+    (day: any) => day.assigned_weekdays?.includes(todayDayName)
   );
   
   // Fallback to preferred days if no assignment found
