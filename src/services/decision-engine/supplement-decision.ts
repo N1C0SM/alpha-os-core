@@ -14,6 +14,7 @@ export interface SupplementRecommendation {
   dosage: string;
   priority: 'essential' | 'recommended' | 'optional';
   reason: string;
+  amazonUrl: string;
 }
 
 export interface SupplementDecision {
@@ -34,6 +35,7 @@ export function supplementDecision(input: SupplementDecisionInput): SupplementDe
     dosage: '5g',
     priority: 'essential',
     reason: 'Mejora fuerza y rendimiento. Tomar diariamente.',
+    amazonUrl: 'https://www.amazon.es/dp/B00ESFBZTE',
   });
   
   // ESSENTIAL: Protein (training days or if goal is muscle gain)
@@ -47,6 +49,7 @@ export function supplementDecision(input: SupplementDecisionInput): SupplementDe
       reason: isWorkoutDay 
         ? 'Recuperación post-entreno. Tomar dentro de 2h después.'
         : 'Completar proteína diaria.',
+      amazonUrl: 'https://www.amazon.es/dp/B00JG8G89A',
     });
   }
   
@@ -59,6 +62,7 @@ export function supplementDecision(input: SupplementDecisionInput): SupplementDe
       dosage: '1 scoop',
       priority: 'recommended',
       reason: 'Energía y enfoque para el entreno. Tomar 30min antes.',
+      amazonUrl: 'https://www.amazon.es/dp/B0C9LDHS1Q',
     });
   }
   
@@ -70,6 +74,7 @@ export function supplementDecision(input: SupplementDecisionInput): SupplementDe
     dosage: '2 cápsulas',
     priority: 'recommended',
     reason: 'Salud cardiovascular y antiinflamatorio.',
+    amazonUrl: 'https://www.amazon.es/dp/B00DQFGO5G',
   });
   
   // OPTIONAL: ZMA (if sleep quality is low)
@@ -81,6 +86,7 @@ export function supplementDecision(input: SupplementDecisionInput): SupplementDe
       dosage: '3 cápsulas',
       priority: 'recommended',
       reason: 'Mejora calidad del sueño y recuperación.',
+      amazonUrl: 'https://www.amazon.es/dp/B000GIQT20',
     });
   }
   
@@ -93,6 +99,7 @@ export function supplementDecision(input: SupplementDecisionInput): SupplementDe
       dosage: '1 scoop',
       priority: 'optional',
       reason: 'Proteína de liberación lenta para la noche.',
+      amazonUrl: 'https://www.amazon.es/dp/B002DYJ0HM',
     });
   }
   
@@ -104,6 +111,7 @@ export function supplementDecision(input: SupplementDecisionInput): SupplementDe
     dosage: '1 cápsula',
     priority: 'optional',
     reason: 'Sistema inmune y energía. Especialmente en invierno.',
+    amazonUrl: 'https://www.amazon.es/dp/B07BDPVK6K',
   });
   
   return {

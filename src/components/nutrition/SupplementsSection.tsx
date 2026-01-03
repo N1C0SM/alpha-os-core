@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Pill, Clock, Zap, Sun, Moon, Utensils } from 'lucide-react';
+import { Check, Pill, Clock, Zap, Sun, Moon, Utensils, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSupplementRecommendations, useSupplementLogs, useToggleSupplement } from '@/hooks/useSupplements';
 import type { SupplementRecommendation } from '@/services/decision-engine/supplement-decision';
@@ -83,7 +83,7 @@ const SupplementsSection: React.FC = () => {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Pill className="w-5 h-5 text-purple-400" />
-          <h3 className="font-semibold text-foreground">Suplementos</h3>
+          <h3 className="font-semibold text-foreground">Suplementos Recomendados</h3>
         </div>
         <span className="text-purple-400 font-bold">{takenCount}/{totalCount}</span>
       </div>
@@ -152,6 +152,16 @@ const SupplementsSection: React.FC = () => {
                           {supp.brand} • {supp.dosage}
                         </p>
                       </div>
+                      <a
+                        href={supp.amazonUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FF9900]/20 text-[#FF9900] text-xs font-medium hover:bg-[#FF9900]/30 transition-colors flex-shrink-0"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Amazon
+                      </a>
                     </div>
                   );
                 })}
