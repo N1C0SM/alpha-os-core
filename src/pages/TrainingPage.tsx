@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X, Sparkles, CalendarDays } from 'lucide-react';
+import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X, Sparkles, CalendarDays, Flame } from 'lucide-react';
+import PreWorkoutModal from '@/components/workout/PreWorkoutModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -64,6 +65,10 @@ const TrainingPage: React.FC = () => {
   const [newDayName, setNewDayName] = useState('');
   const [searchExercise, setSearchExercise] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  
+  // Pre-workout modal state
+  const [preWorkoutDayId, setPreWorkoutDayId] = useState<string | null>(null);
+  const [isStartingRoutineWorkout, setIsStartingRoutineWorkout] = useState(false);
 
   const { data: workoutPlans, isLoading } = useWorkoutPlans();
   const { data: exercises } = useExercises();
@@ -88,6 +93,24 @@ const TrainingPage: React.FC = () => {
       toast({ title: 'Error al iniciar', variant: 'destructive' });
     }
   };
+
+  const handleStartRoutineWorkout = async (dayId: string, includeWarmup: boolean, warmupSets: any[]) => {
+    setIsStartingRoutineWorkout(true);
+    try {
+      const session = await startSession.mutateAsync(dayId);
+      // Pass warmup info via URL params
+      const warmupParam = includeWarmup && warmupSets.length > 0 
+        ? `&warmup=${encodeURIComponent(JSON.stringify(warmupSets))}`
+        : '';
+      navigate(`/entreno/activo?session=${session.id}&dayId=${dayId}${warmupParam}`);
+    } catch (error) {
+      toast({ title: 'Error al iniciar', variant: 'destructive' });
+    } finally {
+      setIsStartingRoutineWorkout(false);
+      setPreWorkoutDayId(null);
+    }
+  };
+
 
   const handleCreateRoutine = async () => {
     if (!newRoutineName.trim()) return;
@@ -250,6 +273,19 @@ const TrainingPage: React.FC = () => {
   };
 
   const currentRoutine = workoutPlans?.find(p => p.id === viewingRoutine);
+
+  // Get exercises for pre-workout modal
+  const preWorkoutDay = currentRoutine?.workout_plan_days?.find(d => d.id === preWorkoutDayId);
+  const preWorkoutExercises = useMemo(() => {
+    if (!preWorkoutDay?.workout_plan_exercises) return [];
+    return preWorkoutDay.workout_plan_exercises.map(ex => ({
+      id: ex.id,
+      name: ex.exercises?.name_es || ex.exercises?.name || 'Ejercicio',
+      sets: ex.sets || 3,
+      repsMin: ex.reps_min || 8,
+      repsMax: ex.reps_max || 12,
+    }));
+  }, [preWorkoutDay]);
 
   const filteredExercises = useMemo(() => {
     return exercises?.filter(ex => {
@@ -441,6 +477,18 @@ const TrainingPage: React.FC = () => {
                 ) : (
                   <p className="text-sm text-muted-foreground">Sin ejercicios</p>
                 )}
+
+                {/* Start workout button */}
+                {day.workout_plan_exercises && day.workout_plan_exercises.length > 0 && (
+                  <Button
+                    onClick={() => setPreWorkoutDayId(day.id)}
+                    className="w-full mt-3 bg-primary text-primary-foreground"
+                    size="sm"
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Empezar Entreno
+                  </Button>
+                )}
               </div>
             );
           })}
@@ -530,6 +578,18 @@ const TrainingPage: React.FC = () => {
             </ScrollArea>
           </DialogContent>
         </Dialog>
+
+        {/* Pre-Workout Modal */}
+        <PreWorkoutModal
+          isOpen={!!preWorkoutDayId}
+          onClose={() => setPreWorkoutDayId(null)}
+          onStartWorkout={(includeWarmup, warmupSets) => 
+            handleStartRoutineWorkout(preWorkoutDayId!, includeWarmup, warmupSets)
+          }
+          dayName={preWorkoutDay?.name || ''}
+          exercises={preWorkoutExercises}
+          isStarting={isStartingRoutineWorkout}
+        />
       </div>
     );
   }

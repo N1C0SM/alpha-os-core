@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useExercises, useLogExercise, useCompleteWorkoutSession } from '@/hooks/useWorkouts';
+import { useExercises, useLogExercise, useCompleteWorkoutSession, useWorkoutPlanDay } from '@/hooks/useWorkouts';
 import { useMultipleExercisesLastPerformance } from '@/hooks/useExerciseHistory';
 import { usePersonalRecords, calculate1RM } from '@/hooks/usePersonalRecords';
 import { useProfile } from '@/hooks/useProfile';
@@ -37,6 +37,9 @@ interface WorkoutExercise {
   name: string;
   sets: SetData[];
   isExpanded: boolean;
+  targetSets?: number;
+  targetRepsMin?: number;
+  targetRepsMax?: number;
 }
 
 interface SetData {
@@ -44,12 +47,15 @@ interface SetData {
   weight: string;
   reps: string;
   completed: boolean;
+  isWarmup?: boolean;
 }
 
 const ActiveWorkoutPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const sessionId = searchParams.get('session');
+  const dayId = searchParams.get('dayId');
+  const warmupParam = searchParams.get('warmup');
   
   const [exercises, setExercises] = useState<WorkoutExercise[]>([]);
   const [startTime] = useState(() => new Date());
@@ -67,8 +73,10 @@ const ActiveWorkoutPage: React.FC = () => {
     estimated1RM: number;
     previousBest?: number;
   } | null>(null);
+  const [hasLoadedRoutine, setHasLoadedRoutine] = useState(false);
 
   const { data: allExercises } = useExercises();
+  const { data: workoutPlanDay } = useWorkoutPlanDay(dayId);
   const { data: profile } = useProfile();
   const logExercise = useLogExercise();
   const completeSession = useCompleteWorkoutSession();
@@ -78,6 +86,75 @@ const ActiveWorkoutPage: React.FC = () => {
   const exerciseIds = useMemo(() => exercises.map(e => e.exerciseId), [exercises]);
   const { data: exerciseHistory } = useMultipleExercisesLastPerformance(exerciseIds);
   const { data: personalRecords } = usePersonalRecords();
+
+  // Load exercises from routine when workout plan day is fetched
+  useEffect(() => {
+    if (workoutPlanDay && !hasLoadedRoutine && allExercises) {
+      const routineExercises: WorkoutExercise[] = [];
+      
+      // Parse warmup sets if present
+      let warmupSets: any[] = [];
+      if (warmupParam) {
+        try {
+          warmupSets = JSON.parse(decodeURIComponent(warmupParam));
+        } catch (e) {
+          console.error('Failed to parse warmup sets', e);
+        }
+      }
+
+      // Add exercises from routine
+      workoutPlanDay.workout_plan_exercises?.forEach((planEx: any, index: number) => {
+        const exerciseInfo = planEx.exercises;
+        if (!exerciseInfo) return;
+
+        const sets: SetData[] = [];
+        
+        // Add warmup sets to the first exercise
+        if (index === 0 && warmupSets.length > 0) {
+          warmupSets.forEach((ws, i) => {
+            sets.push({
+              id: `warmup-${i}`,
+              weight: ws.weight.toString(),
+              reps: ws.reps.toString(),
+              completed: false,
+              isWarmup: true,
+            });
+          });
+        }
+
+        // Add working sets
+        const targetSets = planEx.sets || 3;
+        for (let i = 0; i < targetSets; i++) {
+          sets.push({
+            id: `${planEx.id}-set-${i}`,
+            weight: '',
+            reps: '',
+            completed: false,
+          });
+        }
+
+        routineExercises.push({
+          id: planEx.id,
+          exerciseId: exerciseInfo.id,
+          name: exerciseInfo.name_es || exerciseInfo.name,
+          sets,
+          isExpanded: index === 0,
+          targetSets: planEx.sets,
+          targetRepsMin: planEx.reps_min,
+          targetRepsMax: planEx.reps_max,
+        });
+      });
+
+      if (routineExercises.length > 0) {
+        setExercises(routineExercises);
+        toast({ 
+          title: `Rutina cargada: ${workoutPlanDay.name}`,
+          description: `${routineExercises.length} ejercicios listos${warmupSets.length > 0 ? ' con calentamiento' : ''}`,
+        });
+      }
+      setHasLoadedRoutine(true);
+    }
+  }, [workoutPlanDay, hasLoadedRoutine, warmupParam, allExercises, toast]);
 
   // Timer
   useEffect(() => {
@@ -342,6 +419,9 @@ const ActiveWorkoutPage: React.FC = () => {
                     <h3 className="font-semibold text-foreground truncate">{exercise.name}</h3>
                     <p className="text-xs text-muted-foreground">
                       {exercise.sets.filter(s => s.completed).length}/{exercise.sets.length} series
+                      {exercise.targetRepsMin && exercise.targetRepsMax && (
+                        <span className="ml-1">• {exercise.targetRepsMin}-{exercise.targetRepsMax} reps</span>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -390,37 +470,57 @@ const ActiveWorkoutPage: React.FC = () => {
                     {/* Sets */}
                     {exercise.sets.map((set, setIdx) => {
                       const lastSet = exerciseHistory?.[exercise.exerciseId]?.sets?.[setIdx];
+                      const isWarmup = (set as any).isWarmup;
                       return (
                         <div 
                           key={set.id} 
                           className={cn(
                             "grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center",
-                            set.completed && "opacity-60"
+                            set.completed && "opacity-60",
+                            isWarmup && "bg-orange-500/10 rounded-lg py-1 -mx-1 px-1"
                           )}
                         >
-                          <span className="text-sm font-medium text-foreground text-center">{setIdx + 1}</span>
+                          <span className={cn(
+                            "text-sm font-medium text-center",
+                            isWarmup ? "text-orange-500" : "text-foreground"
+                          )}>
+                            {isWarmup ? (
+                              <Flame className="w-4 h-4 mx-auto" />
+                            ) : (
+                              setIdx + 1 - exercise.sets.filter((s, i) => i < setIdx && (s as any).isWarmup).length
+                            )}
+                          </span>
                           <Input
                             type="number"
                             inputMode="decimal"
-                            placeholder={lastSet?.weight_kg?.toString() || "0"}
-                            value={set.weight}
+                            placeholder={isWarmup ? set.weight : (lastSet?.weight_kg?.toString() || "0")}
+                            value={isWarmup ? set.weight : set.weight}
                             onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
-                            className="h-10 text-center bg-secondary border-border"
+                            className={cn(
+                              "h-10 text-center bg-secondary border-border",
+                              isWarmup && "bg-orange-500/5"
+                            )}
+                            disabled={isWarmup}
                           />
                           <Input
                             type="number"
                             inputMode="numeric"
-                            placeholder={lastSet?.reps_completed?.toString() || "0"}
-                            value={set.reps}
+                            placeholder={isWarmup ? set.reps : (lastSet?.reps_completed?.toString() || "0")}
+                            value={isWarmup ? set.reps : set.reps}
                             onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
-                            className="h-10 text-center bg-secondary border-border"
+                            className={cn(
+                              "h-10 text-center bg-secondary border-border",
+                              isWarmup && "bg-orange-500/5"
+                            )}
+                            disabled={isWarmup}
                           />
                           <Button
                             size="icon"
                             variant={set.completed ? "default" : "outline"}
                             className={cn(
                               "h-10 w-10",
-                              set.completed && "bg-primary text-primary-foreground"
+                              set.completed && !isWarmup && "bg-primary text-primary-foreground",
+                              set.completed && isWarmup && "bg-orange-500 text-white"
                             )}
                             onClick={() => handleToggleSetComplete(exerciseIdx, setIdx)}
                           >

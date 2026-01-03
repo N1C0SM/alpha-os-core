@@ -353,3 +353,28 @@ export const useDeleteWorkoutPlan = () => {
     },
   });
 };
+
+export const useWorkoutPlanDay = (dayId: string | null) => {
+  return useQuery({
+    queryKey: ['workout_plan_day', dayId],
+    queryFn: async () => {
+      if (!dayId) return null;
+      
+      const { data, error } = await supabase
+        .from('workout_plan_days')
+        .select(`
+          *,
+          workout_plan_exercises (
+            *,
+            exercises (*)
+          )
+        `)
+        .eq('id', dayId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!dayId,
+  });
+};
