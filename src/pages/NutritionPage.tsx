@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Check, Utensils, Plus, Loader2, Droplets, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Check, Utensils, Plus, Loader2, Droplets, Trash2, Target, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNutritionPlan, useCreateNutritionPlan, useCreateMeal, useMealLogs, useToggleMeal, useHydrationLog, useUpdateHydration, useDeleteMeal } from '@/hooks/useNutrition';
-import { useProfile } from '@/hooks/useProfile';
+import { useProfile, useUserSchedule } from '@/hooks/useProfile';
+import { nutritionDecision } from '@/services/decision-engine/nutrition-decision';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -25,6 +26,7 @@ const NutritionPage: React.FC = () => {
 
   const { data: nutritionPlan, isLoading } = useNutritionPlan();
   const { data: profile } = useProfile();
+  const { data: schedule } = useUserSchedule();
   const { data: mealLogs } = useMealLogs(today);
   const { data: hydrationLog } = useHydrationLog(today);
   const createNutritionPlan = useCreateNutritionPlan();
@@ -34,23 +36,45 @@ const NutritionPage: React.FC = () => {
   const updateHydration = useUpdateHydration();
   const { toast } = useToast();
 
+  // Calculate personalized macros based on profile and goal
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const todayDayName = dayNames[new Date().getDay()];
+  const preferredDays = schedule?.preferred_workout_days || ['monday', 'tuesday', 'thursday', 'friday'];
+  const isWorkoutDay = preferredDays.includes(todayDayName);
+
+  const personalizedMacros = useMemo(() => {
+    if (!profile?.weight_kg) return null;
+    
+    // Calculate age from date of birth
+    let age = 30; // default
+    if (profile.date_of_birth) {
+      const birth = new Date(profile.date_of_birth);
+      const today = new Date();
+      age = today.getFullYear() - birth.getFullYear();
+    }
+
+    return nutritionDecision({
+      weightKg: Number(profile.weight_kg),
+      heightCm: profile.height_cm ? Number(profile.height_cm) : undefined,
+      age,
+      gender: profile.gender as 'male' | 'female' | 'other' | undefined,
+      fitnessGoal: (profile.fitness_goal as 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance') || 'muscle_gain',
+      isWorkoutDay,
+      activityLevel: 'moderate',
+    });
+  }, [profile, isWorkoutDay]);
+
   // Auto-create nutrition plan if doesn't exist
   useEffect(() => {
-    if (!isLoading && !nutritionPlan && profile) {
-      const weight = Number(profile.weight_kg) || 75;
-      const calories = Math.round(weight * 33); // Simple TDEE estimate
-      const protein = Math.round(weight * 2);
-      const fat = Math.round((calories * 0.25) / 9);
-      const carbs = Math.round((calories - protein * 4 - fat * 9) / 4);
-
+    if (!isLoading && !nutritionPlan && personalizedMacros) {
       createNutritionPlan.mutate({
-        daily_calories: calories,
-        protein_grams: protein,
-        carbs_grams: carbs,
-        fat_grams: fat,
+        daily_calories: personalizedMacros.dailyCalories,
+        protein_grams: personalizedMacros.protein,
+        carbs_grams: personalizedMacros.carbs,
+        fat_grams: personalizedMacros.fats,
       });
     }
-  }, [isLoading, nutritionPlan, profile]);
+  }, [isLoading, nutritionPlan, personalizedMacros]);
 
   const isMealCompleted = (mealId: string) => {
     return mealLogs?.some(log => log.meal_id === mealId && log.completed) || false;
@@ -202,27 +226,48 @@ const NutritionPage: React.FC = () => {
         </Dialog>
       </div>
 
-      {/* Macros Summary */}
-      {nutritionPlan && (
+      {/* Macros Summary - Personalized */}
+      {personalizedMacros && (
         <div className="bg-card rounded-2xl p-5 mb-6 border border-border">
-          <h3 className="font-semibold text-foreground mb-4">Macros del día</h3>
-          <div className="grid grid-cols-4 gap-3 text-center">
-            <div>
-              <p className="text-2xl font-bold text-primary">{nutritionPlan.daily_calories}</p>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-primary" />
+              <h3 className="font-semibold text-foreground">Tus Macros Objetivo</h3>
+            </div>
+            <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">
+              {personalizedMacros.goalLabel}
+            </span>
+          </div>
+          
+          <p className="text-xs text-muted-foreground mb-4 flex items-start gap-1">
+            <Info className="w-3 h-3 mt-0.5 flex-shrink-0" />
+            {personalizedMacros.explanation}
+          </p>
+
+          <div className="grid grid-cols-4 gap-3 text-center mb-3">
+            <div className="bg-secondary/50 rounded-xl p-2">
+              <p className="text-xl font-bold text-primary">{personalizedMacros.dailyCalories}</p>
               <p className="text-xs text-muted-foreground">kcal</p>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-success">{nutritionPlan.protein_grams}g</p>
+            <div className="bg-secondary/50 rounded-xl p-2">
+              <p className="text-xl font-bold text-green-400">{personalizedMacros.protein}g</p>
               <p className="text-xs text-muted-foreground">Proteína</p>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-warning">{nutritionPlan.carbs_grams}g</p>
+            <div className="bg-secondary/50 rounded-xl p-2">
+              <p className="text-xl font-bold text-amber-400">{personalizedMacros.carbs}g</p>
               <p className="text-xs text-muted-foreground">Carbos</p>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-purple-400">{nutritionPlan.fat_grams}g</p>
+            <div className="bg-secondary/50 rounded-xl p-2">
+              <p className="text-xl font-bold text-purple-400">{personalizedMacros.fats}g</p>
               <p className="text-xs text-muted-foreground">Grasas</p>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between text-xs text-muted-foreground bg-secondary/30 rounded-lg px-3 py-2">
+            <span>Proteína/kg: <span className="text-foreground font-medium">{personalizedMacros.proteinPerKg}g</span></span>
+            <span className="text-primary">
+              {isWorkoutDay ? '🏋️ Día de entreno (+200 kcal)' : '😴 Día de descanso'}
+            </span>
           </div>
         </div>
       )}
