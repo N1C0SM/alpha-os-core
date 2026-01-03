@@ -812,6 +812,7 @@ export type Database = {
       }
       workout_plan_days: {
         Row: {
+          assigned_weekday: string | null
           created_at: string | null
           day_number: number
           focus: Database["public"]["Enums"]["muscle_group"][] | null
@@ -821,6 +822,7 @@ export type Database = {
           workout_plan_id: string
         }
         Insert: {
+          assigned_weekday?: string | null
           created_at?: string | null
           day_number: number
           focus?: Database["public"]["Enums"]["muscle_group"][] | null
@@ -830,6 +832,7 @@ export type Database = {
           workout_plan_id: string
         }
         Update: {
+          assigned_weekday?: string | null
           created_at?: string | null
           day_number?: number
           focus?: Database["public"]["Enums"]["muscle_group"][] | null

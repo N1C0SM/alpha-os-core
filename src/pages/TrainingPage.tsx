@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X, Sparkles } from 'lucide-react';
+import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X, Sparkles, CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   useWorkoutPlans,
   useCreateWorkoutPlan,
@@ -22,6 +23,16 @@ import { routineDecision } from '@/services/decision-engine/routine-decision';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+
+const WEEKDAYS = [
+  { id: 'monday', name: 'Lunes', short: 'L' },
+  { id: 'tuesday', name: 'Martes', short: 'M' },
+  { id: 'wednesday', name: 'Miércoles', short: 'X' },
+  { id: 'thursday', name: 'Jueves', short: 'J' },
+  { id: 'friday', name: 'Viernes', short: 'V' },
+  { id: 'saturday', name: 'Sábado', short: 'S' },
+  { id: 'sunday', name: 'Domingo', short: 'D' },
+];
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -363,6 +374,37 @@ const TrainingPage: React.FC = () => {
                     <Plus className="w-4 h-4 mr-1" />
                     Ejercicio
                   </Button>
+                </div>
+
+                {/* Weekday assignment */}
+                <div className="flex items-center gap-2 mb-3">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                  <Select
+                    value={(day as any).assigned_weekday || 'none'}
+                    onValueChange={(value) => {
+                      updateDay.mutate({ 
+                        dayId: day.id, 
+                        assignedWeekday: value === 'none' ? null : value 
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-auto bg-secondary border-border text-sm">
+                      <SelectValue placeholder="Asignar día" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin asignar</SelectItem>
+                      {WEEKDAYS.map((wd) => (
+                        <SelectItem key={wd.id} value={wd.id}>
+                          {wd.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {(day as any).assigned_weekday && (
+                    <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                      {WEEKDAYS.find(w => w.id === (day as any).assigned_weekday)?.name}
+                    </span>
+                  )}
                 </div>
 
                 {day.workout_plan_exercises && day.workout_plan_exercises.length > 0 ? (
