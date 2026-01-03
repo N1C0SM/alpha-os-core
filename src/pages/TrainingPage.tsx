@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X } from 'lucide-react';
+import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -17,6 +17,8 @@ import {
   useDeleteWorkoutPlanExercise,
   useDeleteWorkoutPlan,
 } from '@/hooks/useWorkouts';
+import { useProfile, useUserSchedule } from '@/hooks/useProfile';
+import { routineDecision } from '@/services/decision-engine/routine-decision';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -41,6 +43,7 @@ const TrainingPage: React.FC = () => {
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [viewingRoutine, setViewingRoutine] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const [editingDayId, setEditingDayId] = useState<string | null>(null);
   const [editingDayName, setEditingDayName] = useState('');
@@ -53,6 +56,8 @@ const TrainingPage: React.FC = () => {
   const { data: workoutPlans, isLoading } = useWorkoutPlans();
   const { data: exercises } = useExercises();
   const { data: sessions } = useWorkoutSessions();
+  const { data: profile } = useProfile();
+  const { data: schedule } = useUserSchedule();
   const createPlan = useCreateWorkoutPlan();
   const createDay = useCreateWorkoutDay();
   const addExercise = useAddExerciseToPlan();
@@ -82,6 +87,69 @@ const TrainingPage: React.FC = () => {
       toast({ title: 'Rutina creada' });
     } catch (error) {
       toast({ title: 'Error', variant: 'destructive' });
+    }
+  };
+
+  const handleGenerateRoutine = async () => {
+    if (!profile) {
+      toast({ title: 'Configura tu perfil primero', variant: 'destructive' });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const daysPerWeek = schedule?.preferred_workout_days?.length || schedule?.workout_days_per_week || 4;
+      const recommendation = routineDecision({
+        fitnessGoal: (profile.fitness_goal as 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance') || 'muscle_gain',
+        experienceLevel: (profile.experience_level as 'beginner' | 'intermediate' | 'advanced') || 'intermediate',
+        daysPerWeek,
+      });
+
+      // Create the plan
+      const plan = await createPlan.mutateAsync({
+        name: recommendation.name,
+        description: recommendation.description,
+        split_type: recommendation.splitType,
+        days_per_week: daysPerWeek,
+      });
+
+      // Create days with exercises
+      for (let i = 0; i < recommendation.days.length; i++) {
+        const dayData = recommendation.days[i];
+        const day = await createDay.mutateAsync({
+          workout_plan_id: plan.id,
+          name: dayData.name,
+          day_number: i + 1,
+          focus: dayData.focus as any[],
+        });
+
+        // Find matching exercises from DB and add them
+        for (const ex of dayData.exercises) {
+          const matchingExercise = exercises?.find(
+            e => e.name_es?.toLowerCase().includes(ex.name.toLowerCase().split(' ')[0]) ||
+                 e.name?.toLowerCase().includes(ex.name.toLowerCase().split(' ')[0])
+          );
+          
+          if (matchingExercise) {
+            await addExercise.mutateAsync({
+              workout_plan_day_id: day.id,
+              exercise_id: matchingExercise.id,
+              sets: ex.sets,
+              reps_min: ex.repsMin,
+              reps_max: ex.repsMax,
+            });
+          }
+        }
+      }
+
+      setIsNewRoutineOpen(false);
+      setViewingRoutine(plan.id);
+      toast({ title: '¡Rutina personalizada creada!', description: recommendation.description });
+    } catch (error) {
+      console.error('Error generating routine:', error);
+      toast({ title: 'Error al generar rutina', variant: 'destructive' });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -550,22 +618,52 @@ const TrainingPage: React.FC = () => {
         <DialogContent className="bg-card border-border">
           <DialogHeader>
             <DialogTitle>Nueva Rutina</DialogTitle>
-            <DialogDescription>Dale un nombre a tu rutina</DialogDescription>
+            <DialogDescription>Crea una rutina personalizada o genera una basada en tu objetivo</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
+            {/* Generate personalized routine button */}
+            <Button 
+              onClick={handleGenerateRoutine}
+              variant="outline"
+              className="w-full h-14 border-primary/50 hover:bg-primary/10 text-foreground"
+              disabled={isGenerating || !profile}
+            >
+              {isGenerating ? (
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+              ) : (
+                <Sparkles className="w-5 h-5 mr-2 text-primary" />
+              )}
+              <div className="text-left">
+                <span className="font-semibold">Generar Rutina Personalizada</span>
+                <p className="text-xs text-muted-foreground">
+                  Basada en tu objetivo: {profile?.fitness_goal === 'muscle_gain' ? 'Ganar músculo' : 
+                    profile?.fitness_goal === 'fat_loss' ? 'Perder grasa' : 
+                    profile?.fitness_goal === 'recomposition' ? 'Recomposición' : 'Mantenimiento'}
+                </p>
+              </div>
+            </Button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">o crear manual</span>
+              </div>
+            </div>
+
             <Input
-              placeholder="Ej: Push Pull Legs, Full Body..."
+              placeholder="Nombre de la rutina..."
               value={newRoutineName}
               onChange={(e) => setNewRoutineName(e.target.value)}
               className="bg-secondary border-border"
-              autoFocus
             />
             <Button 
               onClick={handleCreateRoutine} 
               className="w-full bg-primary text-primary-foreground"
               disabled={!newRoutineName.trim() || createPlan.isPending}
             >
-              {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear Rutina'}
+              {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear Rutina Vacía'}
             </Button>
           </div>
         </DialogContent>
