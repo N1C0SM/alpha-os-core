@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useExercises, useLogExercise, useCompleteWorkoutSession } from '@/hooks/useWorkouts';
+import { useMultipleExercisesLastPerformance } from '@/hooks/useExerciseHistory';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import PostWorkoutSummary from '@/components/workout/PostWorkoutSummary';
+import RestTimer from '@/components/workout/RestTimer';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -59,6 +61,10 @@ const ActiveWorkoutPage: React.FC = () => {
   const logExercise = useLogExercise();
   const completeSession = useCompleteWorkoutSession();
   const { toast } = useToast();
+
+  // Get exercise IDs for history lookup
+  const exerciseIds = useMemo(() => exercises.map(e => e.exerciseId), [exercises]);
+  const { data: exerciseHistory } = useMultipleExercisesLastPerformance(exerciseIds);
 
   // Timer
   useEffect(() => {
@@ -305,6 +311,19 @@ const ActiveWorkoutPage: React.FC = () => {
 
                 {exercise.isExpanded && (
                   <div className="px-4 pb-4 space-y-2">
+                    {/* Last performance */}
+                    {exerciseHistory?.[exercise.exerciseId] && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 mb-2">
+                        <History className="w-3.5 h-3.5" />
+                        <span>Último:</span>
+                        <span className="font-medium text-foreground">
+                          {exerciseHistory[exercise.exerciseId].sets.map((s, i) => 
+                            `${s.weight_kg || 0}kg×${s.reps_completed || 0}`
+                          ).join(' / ')}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Header */}
                     <div className="grid grid-cols-[40px_1fr_1fr_40px] gap-2 text-xs text-muted-foreground px-1">
                       <span>Set</span>
@@ -314,44 +333,47 @@ const ActiveWorkoutPage: React.FC = () => {
                     </div>
 
                     {/* Sets */}
-                    {exercise.sets.map((set, setIdx) => (
-                      <div 
-                        key={set.id} 
-                        className={cn(
-                          "grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center",
-                          set.completed && "opacity-60"
-                        )}
-                      >
-                        <span className="text-sm font-medium text-foreground text-center">{setIdx + 1}</span>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          placeholder="0"
-                          value={set.weight}
-                          onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
-                          className="h-10 text-center bg-secondary border-border"
-                        />
-                        <Input
-                          type="number"
-                          inputMode="numeric"
-                          placeholder="0"
-                          value={set.reps}
-                          onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
-                          className="h-10 text-center bg-secondary border-border"
-                        />
-                        <Button
-                          size="icon"
-                          variant={set.completed ? "default" : "outline"}
+                    {exercise.sets.map((set, setIdx) => {
+                      const lastSet = exerciseHistory?.[exercise.exerciseId]?.sets?.[setIdx];
+                      return (
+                        <div 
+                          key={set.id} 
                           className={cn(
-                            "h-10 w-10",
-                            set.completed && "bg-primary text-primary-foreground"
+                            "grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center",
+                            set.completed && "opacity-60"
                           )}
-                          onClick={() => handleToggleSetComplete(exerciseIdx, setIdx)}
                         >
-                          <Check className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
+                          <span className="text-sm font-medium text-foreground text-center">{setIdx + 1}</span>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            placeholder={lastSet?.weight_kg?.toString() || "0"}
+                            value={set.weight}
+                            onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
+                            className="h-10 text-center bg-secondary border-border"
+                          />
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            placeholder={lastSet?.reps_completed?.toString() || "0"}
+                            value={set.reps}
+                            onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
+                            className="h-10 text-center bg-secondary border-border"
+                          />
+                          <Button
+                            size="icon"
+                            variant={set.completed ? "default" : "outline"}
+                            className={cn(
+                              "h-10 w-10",
+                              set.completed && "bg-primary text-primary-foreground"
+                            )}
+                            onClick={() => handleToggleSetComplete(exerciseIdx, setIdx)}
+                          >
+                            <Check className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })}
 
                     {/* Add/Remove set buttons */}
                     <div className="flex gap-2 pt-2">
@@ -382,6 +404,9 @@ const ActiveWorkoutPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Rest Timer */}
+      <RestTimer defaultSeconds={90} />
 
       {/* Floating add button */}
       {exercises.length > 0 && (
