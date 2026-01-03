@@ -456,6 +456,16 @@ const ActiveWorkoutPage: React.FC = () => {
                 )}
               </div>
             ))}
+
+            {/* Tools section when exercises exist */}
+            <div className="pt-4 border-t border-border mt-4">
+              <p className="text-xs text-muted-foreground mb-3">Herramientas</p>
+              <div className="flex flex-wrap gap-2">
+                <WarmupGenerator />
+                <OneRMCalculator />
+                <PlateCalculator />
+              </div>
+            </div>
           </div>
         )}
       </div>
