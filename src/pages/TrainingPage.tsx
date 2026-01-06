@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X, Sparkles, CalendarDays, Flame } from 'lucide-react';
+import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X, Sparkles, CalendarDays, Flame, Crown } from 'lucide-react';
 import PreWorkoutModal from '@/components/workout/PreWorkoutModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,11 +20,13 @@ import {
   useDeleteWorkoutPlan,
 } from '@/hooks/useWorkouts';
 import { useProfile, useUserSchedule } from '@/hooks/useProfile';
+import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { routineDecision } from '@/services/decision-engine/routine-decision';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WeeklyVolumeCard from '@/components/workout/WeeklyVolumeCard';
+import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 
 const WEEKDAYS = [
   { id: 'monday', name: 'Lunes', short: 'L' },
@@ -57,6 +59,7 @@ const TrainingPage: React.FC = () => {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null);
   const [viewingRoutine, setViewingRoutine] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [editingDayId, setEditingDayId] = useState<string | null>(null);
   const [editingDayName, setEditingDayName] = useState('');
@@ -69,6 +72,9 @@ const TrainingPage: React.FC = () => {
   // Pre-workout modal state
   const [preWorkoutDayId, setPreWorkoutDayId] = useState<string | null>(null);
   const [isStartingRoutineWorkout, setIsStartingRoutineWorkout] = useState(false);
+  
+  // Subscription limits
+  const { canCreateRoutine, routineCount, routineLimit, isPremium, routinesRemaining } = useSubscriptionLimits();
 
   const { data: workoutPlans, isLoading } = useWorkoutPlans();
   const { data: exercises } = useExercises();
@@ -114,6 +120,11 @@ const TrainingPage: React.FC = () => {
 
   const handleCreateRoutine = async () => {
     if (!newRoutineName.trim()) return;
+    if (!canCreateRoutine) {
+      setIsNewRoutineOpen(false);
+      setShowUpgradeModal(true);
+      return;
+    }
     try {
       const plan = await createPlan.mutateAsync({ name: newRoutineName, split_type: 'custom' });
       setNewRoutineName('');
@@ -126,6 +137,11 @@ const TrainingPage: React.FC = () => {
   };
 
   const handleGenerateRoutine = async () => {
+    if (!canCreateRoutine) {
+      setIsNewRoutineOpen(false);
+      setShowUpgradeModal(true);
+      return;
+    }
     if (!profile) {
       toast({ title: 'Configura tu perfil primero', variant: 'destructive' });
       return;
@@ -641,12 +657,31 @@ const TrainingPage: React.FC = () => {
 
           {/* Routines list */}
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-foreground">Rutinas</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-foreground">Rutinas</h2>
+              {!isPremium && (
+                <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                  {routineCount}/{routineLimit}
+                </span>
+              )}
+              {isPremium && (
+                <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Crown className="w-3 h-3" />
+                  Premium
+                </span>
+              )}
+            </div>
             <Button 
               variant="ghost" 
               size="sm" 
               className="text-primary"
-              onClick={() => setIsNewRoutineOpen(true)}
+              onClick={() => {
+                if (!canCreateRoutine) {
+                  setShowUpgradeModal(true);
+                } else {
+                  setIsNewRoutineOpen(true);
+                }
+              }}
             >
               <Plus className="w-4 h-4 mr-1" />
               Nueva
@@ -780,6 +815,13 @@ const TrainingPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        open={showUpgradeModal} 
+        onOpenChange={setShowUpgradeModal}
+        trigger="routines"
+      />
     </div>
   );
 };
