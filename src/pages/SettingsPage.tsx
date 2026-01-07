@@ -1,14 +1,17 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Moon, Sun, LogOut, Loader2, Dumbbell, Utensils, Droplets, Pill, CheckSquare } from 'lucide-react';
+import { ArrowLeft, Bell, Moon, Sun, LogOut, Loader2, Dumbbell, Utensils, Droplets, Pill, CheckSquare, Crown, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 import { usePreferences, useUpdatePreferences } from '@/hooks/usePreferences';
 import { useUserSchedule } from '@/hooks/useProfile';
 import { useNotifications, notificationScheduler } from '@/hooks/useNotifications';
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 const SettingsPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +22,7 @@ const SettingsPage: React.FC = () => {
   const { data: schedule } = useUserSchedule();
   const updatePreferences = useUpdatePreferences();
   const { permission, requestPermission, isSupported, sendNotification } = useNotifications();
+  const { isPremium, subscriptionEnd, openCheckout, openCustomerPortal, isLoading: subLoading } = useSubscription();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
 
@@ -370,6 +374,65 @@ const SettingsPage: React.FC = () => {
               Has bloqueado las notificaciones. Para activarlas, ve a la configuración de tu navegador.
             </p>
           )}
+        </div>
+
+        {/* Subscription Section */}
+        <div className="space-y-3 pt-4">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Suscripción
+          </h2>
+          
+          <div className="bg-card rounded-xl border border-border p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                  isPremium 
+                    ? 'bg-gradient-to-br from-yellow-400 to-orange-500' 
+                    : 'bg-muted'
+                }`}>
+                  <Crown className={`w-5 h-5 ${isPremium ? 'text-white' : 'text-muted-foreground'}`} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-foreground">
+                      {isPremium ? 'Premium' : 'Plan Gratuito'}
+                    </p>
+                    {isPremium && (
+                      <span className="text-xs bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-2 py-0.5 rounded-full">
+                        Activo
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {isPremium && subscriptionEnd
+                      ? `Renueva el ${format(new Date(subscriptionEnd), "d 'de' MMMM", { locale: es })}`
+                      : 'Máximo 3 rutinas'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4">
+              {isPremium ? (
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={openCustomerPortal}
+                >
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Gestionar suscripción
+                </Button>
+              ) : (
+                <Button 
+                  className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
+                  onClick={openCheckout}
+                >
+                  <Crown className="w-4 h-4 mr-2" />
+                  Actualizar a Premium - 4,99€/mes
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Appearance Section */}

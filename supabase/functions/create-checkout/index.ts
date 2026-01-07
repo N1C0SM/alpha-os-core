@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PREMIUM_PRICE_ID = "price_1SmapyDAAbLO1dqLmcHitYtd";
+const PREMIUM_PRICE_ID = "price_1SmtJdDAAbLO1dqLZN5MY4uE";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

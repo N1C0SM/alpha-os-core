@@ -8,6 +8,8 @@ interface SubscriptionContextType {
   subscriptionEnd: string | null;
   checkSubscription: () => Promise<void>;
   isPremium: boolean;
+  openCheckout: () => Promise<void>;
+  openCustomerPortal: () => Promise<void>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -55,6 +57,52 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [session?.access_token]);
 
+  const openCheckout = async () => {
+    if (!session?.access_token) {
+      console.error('No session for checkout');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error opening checkout:', error);
+    }
+  };
+
+  const openCustomerPortal = async () => {
+    if (!session?.access_token) {
+      console.error('No session for portal');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       checkSubscription();
@@ -79,6 +127,8 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       subscriptionEnd,
       checkSubscription,
       isPremium: tier === 'premium',
+      openCheckout,
+      openCustomerPortal,
     }}>
       {children}
     </SubscriptionContext.Provider>
