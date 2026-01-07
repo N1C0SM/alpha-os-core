@@ -150,10 +150,18 @@ const TrainingPage: React.FC = () => {
     setIsGenerating(true);
     try {
       const daysPerWeek = schedule?.preferred_workout_days?.length || schedule?.workout_days_per_week || 4;
+      const externalActivities = schedule?.external_activities && typeof schedule.external_activities === 'object' && !Array.isArray(schedule.external_activities) 
+        ? schedule.external_activities as any
+        : {};
+      
       const recommendation = routineDecision({
         fitnessGoal: (profile.fitness_goal as 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance') || 'muscle_gain',
         experienceLevel: (profile.experience_level as 'beginner' | 'intermediate' | 'advanced') || 'intermediate',
         daysPerWeek,
+        externalActivities,
+        preferredGymDays: schedule?.preferred_workout_days || [],
+        weightKg: profile.weight_kg || undefined,
+        heightCm: profile.height_cm || undefined,
       });
 
       // Create the plan
@@ -195,7 +203,17 @@ const TrainingPage: React.FC = () => {
 
       setIsNewRoutineOpen(false);
       setViewingRoutine(plan.id);
-      toast({ title: '¡Rutina personalizada creada!', description: recommendation.description });
+      
+      // Show notes about external activities if any
+      const activityNotes = recommendation.externalActivityNotes || [];
+      if (activityNotes.length > 0) {
+        toast({ 
+          title: '¡Rutina personalizada creada!', 
+          description: `${recommendation.description}\n\n${activityNotes.slice(0, 2).join('\n')}`,
+        });
+      } else {
+        toast({ title: '¡Rutina personalizada creada!', description: recommendation.description });
+      }
     } catch (error) {
       console.error('Error generating routine:', error);
       toast({ title: 'Error al generar rutina', variant: 'destructive' });

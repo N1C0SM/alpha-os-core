@@ -803,6 +803,7 @@ export type Database = {
           breakfast_time: string | null
           created_at: string | null
           dinner_time: string | null
+          external_activities: Json | null
           id: string
           lunch_time: string | null
           preferred_workout_days: string[] | null
@@ -818,6 +819,7 @@ export type Database = {
           breakfast_time?: string | null
           created_at?: string | null
           dinner_time?: string | null
+          external_activities?: Json | null
           id?: string
           lunch_time?: string | null
           preferred_workout_days?: string[] | null
@@ -833,6 +835,7 @@ export type Database = {
           breakfast_time?: string | null
           created_at?: string | null
           dinner_time?: string | null
+          external_activities?: Json | null
           id?: string
           lunch_time?: string | null
           preferred_workout_days?: string[] | null

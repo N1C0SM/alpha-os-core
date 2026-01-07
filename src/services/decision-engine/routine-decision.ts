@@ -1,10 +1,20 @@
 // Routine Decision Service
-// Generates personalized workout routines based on user goals
+// Generates personalized workout routines based on user goals and external activities
+
+import { 
+  ExternalActivityType, 
+  WeeklyExternalActivities, 
+  ACTIVITY_MUSCLE_IMPACT 
+} from '@/types/schedule';
 
 export interface RoutineDecisionInput {
   fitnessGoal: 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance';
   experienceLevel: 'beginner' | 'intermediate' | 'advanced';
   daysPerWeek: number;
+  externalActivities?: WeeklyExternalActivities;
+  preferredGymDays?: string[];
+  weightKg?: number;
+  heightCm?: number;
 }
 
 export interface RoutineDay {
@@ -18,141 +28,227 @@ export interface RoutineDay {
     repsMax: number;
     restSeconds: number;
   }[];
+  notes?: string;
+  avoidMuscles?: string[];
 }
 
 export interface RoutineRecommendation {
   name: string;
   description: string;
-  splitType: 'push_pull_legs' | 'upper_lower' | 'full_body' | 'bro_split';
+  splitType: 'push_pull_legs' | 'upper_lower' | 'full_body' | 'bro_split' | 'custom';
   days: RoutineDay[];
+  weeklySchedule?: { [day: string]: string }; // day -> routine day name
+  externalActivityNotes?: string[];
 }
 
-const PPL_ROUTINE: RoutineDay[] = [
-  {
-    name: 'Push (Pecho, Hombros, Tríceps)',
-    focus: ['chest', 'shoulders', 'triceps'],
-    exercises: [
-      { name: 'Press Banca', muscleGroup: 'chest', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-      { name: 'Press Inclinado Mancuernas', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Press Militar', muscleGroup: 'shoulders', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
-      { name: 'Fondos en Paralelas', muscleGroup: 'triceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Extensiones Tríceps Polea', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-    ],
-  },
-  {
-    name: 'Pull (Espalda, Bíceps)',
-    focus: ['back', 'biceps'],
-    exercises: [
-      { name: 'Dominadas', muscleGroup: 'back', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-      { name: 'Remo con Barra', muscleGroup: 'back', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Jalón al Pecho', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { name: 'Remo Mancuerna', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { name: 'Curl Bíceps Barra', muscleGroup: 'biceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 60 },
-      { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-    ],
-  },
-  {
-    name: 'Legs (Piernas)',
-    focus: ['quadriceps', 'hamstrings', 'glutes', 'calves'],
-    exercises: [
-      { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 180 },
-      { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 120 },
-      { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
-      { name: 'Curl Femoral', muscleGroup: 'hamstrings', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-      { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
-      { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 4, repsMin: 12, repsMax: 20, restSeconds: 60 },
-    ],
-  },
+const DAYS_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+// ============= Exercise Templates =============
+
+const PUSH_EXERCISES = [
+  { name: 'Press Banca', muscleGroup: 'chest', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
+  { name: 'Press Inclinado Mancuernas', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
+  { name: 'Fondos en Paralelas', muscleGroup: 'triceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Extensiones Tríceps Polea', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
 ];
 
-const UPPER_LOWER_ROUTINE: RoutineDay[] = [
-  {
-    name: 'Upper (Torso)',
-    focus: ['chest', 'back', 'shoulders', 'biceps', 'triceps'],
-    exercises: [
-      { name: 'Press Banca', muscleGroup: 'chest', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-      { name: 'Remo con Barra', muscleGroup: 'back', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Press Militar', muscleGroup: 'shoulders', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Jalón al Pecho', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-      { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
-      { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-    ],
-  },
-  {
-    name: 'Lower (Piernas)',
-    focus: ['quadriceps', 'hamstrings', 'glutes', 'calves'],
-    exercises: [
-      { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 180 },
-      { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 120 },
-      { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
-      { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
-      { name: 'Curl Femoral', muscleGroup: 'hamstrings', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-      { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 4, repsMin: 12, repsMax: 20, restSeconds: 60 },
-    ],
-  },
+const PULL_EXERCISES = [
+  { name: 'Dominadas', muscleGroup: 'back', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
+  { name: 'Remo con Barra', muscleGroup: 'back', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Jalón al Pecho', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
+  { name: 'Remo Mancuerna', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
+  { name: 'Curl Bíceps Barra', muscleGroup: 'biceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 60 },
+  { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
 ];
 
-const FULLBODY_ROUTINE: RoutineDay[] = [
-  {
-    name: 'Full Body A',
-    focus: ['chest', 'back', 'quadriceps', 'shoulders'],
-    exercises: [
-      { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 180 },
-      { name: 'Press Banca', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 120 },
-      { name: 'Remo con Barra', muscleGroup: 'back', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Press Militar', muscleGroup: 'shoulders', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
-      { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
-    ],
-  },
-  {
-    name: 'Full Body B',
-    focus: ['hamstrings', 'back', 'chest', 'shoulders'],
-    exercises: [
-      { name: 'Peso Muerto', muscleGroup: 'hamstrings', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 180 },
-      { name: 'Press Inclinado', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-      { name: 'Dominadas', muscleGroup: 'back', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 120 },
-      { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
-      { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
-      { name: 'Fondos', muscleGroup: 'triceps', sets: 2, repsMin: 8, repsMax: 12, restSeconds: 90 },
-    ],
-  },
+const LEG_EXERCISES = [
+  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 180 },
+  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 120 },
+  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
+  { name: 'Curl Femoral', muscleGroup: 'hamstrings', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
+  { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 4, repsMin: 12, repsMax: 20, restSeconds: 60 },
 ];
+
+const UPPER_EXERCISES = [
+  { name: 'Press Banca', muscleGroup: 'chest', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
+  { name: 'Remo con Barra', muscleGroup: 'back', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Jalón al Pecho', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
+  { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
+  { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
+];
+
+const LOWER_EXERCISES = [
+  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 180 },
+  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 120 },
+  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
+  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
+  { name: 'Curl Femoral', muscleGroup: 'hamstrings', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 4, repsMin: 12, repsMax: 20, restSeconds: 60 },
+];
+
+const FULLBODY_A_EXERCISES = [
+  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 180 },
+  { name: 'Press Banca', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 120 },
+  { name: 'Remo con Barra', muscleGroup: 'back', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
+];
+
+const FULLBODY_B_EXERCISES = [
+  { name: 'Peso Muerto', muscleGroup: 'hamstrings', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 180 },
+  { name: 'Press Inclinado', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Dominadas', muscleGroup: 'back', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 120 },
+  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
+  { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Fondos', muscleGroup: 'triceps', sets: 2, repsMin: 8, repsMax: 12, restSeconds: 90 },
+];
+
+// ============= Fatigue Analysis =============
+
+function analyzeFatigue(externalActivities: WeeklyExternalActivities): {
+  muscleLoadByDay: { [day: string]: { high: string[]; moderate: string[] } };
+  totalCardioLoad: number;
+  recommendations: string[];
+} {
+  const muscleLoadByDay: { [day: string]: { high: string[]; moderate: string[] } } = {};
+  let totalCardioLoad = 0;
+  const recommendations: string[] = [];
+
+  for (const [day, activity] of Object.entries(externalActivities)) {
+    if (!activity) continue;
+    
+    const impact = ACTIVITY_MUSCLE_IMPACT[activity.activity];
+    if (!impact) continue;
+
+    muscleLoadByDay[day] = {
+      high: impact.highFatigue,
+      moderate: impact.moderateFatigue,
+    };
+
+    if (impact.cardiovascularLoad === 'high') totalCardioLoad += 2;
+    else if (impact.cardiovascularLoad === 'moderate') totalCardioLoad += 1;
+  }
+
+  // Generate recommendations
+  const allHighFatigue = Object.values(muscleLoadByDay).flatMap(m => m.high);
+  const muscleFrequency: { [muscle: string]: number } = {};
+  allHighFatigue.forEach(m => { muscleFrequency[m] = (muscleFrequency[m] || 0) + 1; });
+
+  for (const [muscle, freq] of Object.entries(muscleFrequency)) {
+    if (freq >= 2) {
+      recommendations.push(`⚠️ ${muscle} trabajado ${freq}x/semana en actividades externas - reducir volumen en gym`);
+    }
+  }
+
+  if (totalCardioLoad >= 4) {
+    recommendations.push('🫀 Alto volumen cardio semanal - considera añadir calorías extra');
+  }
+
+  return { muscleLoadByDay, totalCardioLoad, recommendations };
+}
+
+// ============= Smart Routine Generator =============
+
+function filterExercises(
+  exercises: typeof PUSH_EXERCISES,
+  avoidMuscles: string[],
+  reduceVolumeMuscles: string[]
+): typeof PUSH_EXERCISES {
+  return exercises
+    .filter(ex => !avoidMuscles.includes(ex.muscleGroup))
+    .map(ex => {
+      if (reduceVolumeMuscles.includes(ex.muscleGroup)) {
+        return { ...ex, sets: Math.max(ex.sets - 1, 2) };
+      }
+      return ex;
+    });
+}
+
+function getAdjacentDayFatigue(
+  day: string,
+  muscleLoadByDay: { [day: string]: { high: string[]; moderate: string[] } }
+): { avoid: string[]; reduce: string[] } {
+  const dayIndex = DAYS_ORDER.indexOf(day);
+  const prevDay = DAYS_ORDER[(dayIndex - 1 + 7) % 7];
+  const nextDay = DAYS_ORDER[(dayIndex + 1) % 7];
+
+  const avoid: string[] = [];
+  const reduce: string[] = [];
+
+  // Avoid muscles that were heavily worked the day before
+  if (muscleLoadByDay[prevDay]) {
+    avoid.push(...muscleLoadByDay[prevDay].high);
+    reduce.push(...muscleLoadByDay[prevDay].moderate);
+  }
+
+  // Also consider if the next day has intense activity
+  if (muscleLoadByDay[nextDay]) {
+    reduce.push(...muscleLoadByDay[nextDay].high);
+  }
+
+  return { avoid: [...new Set(avoid)], reduce: [...new Set(reduce)] };
+}
 
 export function routineDecision(input: RoutineDecisionInput): RoutineRecommendation {
-  const { fitnessGoal, experienceLevel, daysPerWeek } = input;
+  const { 
+    fitnessGoal, 
+    experienceLevel, 
+    daysPerWeek, 
+    externalActivities = {},
+    preferredGymDays = [] 
+  } = input;
 
-  // Determine best split based on days per week and experience
-  let splitType: 'push_pull_legs' | 'upper_lower' | 'full_body' | 'bro_split';
+  const fatigueAnalysis = analyzeFatigue(externalActivities);
+  const gymDays = preferredGymDays.length > 0 ? preferredGymDays : [];
+  const actualGymDays = gymDays.length || daysPerWeek;
+
+  // Determine best split based on available gym days
+  let splitType: RoutineRecommendation['splitType'];
   let baseDays: RoutineDay[];
   let name: string;
   let description: string;
 
-  if (daysPerWeek <= 3) {
-    // Full body for 2-3 days
+  // With external activities, we need a more flexible approach
+  const hasSignificantExternalLoad = Object.keys(externalActivities).length >= 2;
+
+  if (actualGymDays <= 2 || (actualGymDays <= 3 && hasSignificantExternalLoad)) {
     splitType = 'full_body';
-    baseDays = FULLBODY_ROUTINE;
     name = 'Rutina Full Body';
-    description = 'Entrena todo el cuerpo cada sesión. Ideal para 2-3 días por semana.';
-  } else if (daysPerWeek === 4) {
-    // Upper/Lower for 4 days
+    description = 'Entrena todo el cuerpo cada sesión, optimizado para complementar tus otras actividades.';
+    baseDays = [
+      { name: 'Full Body A', focus: ['chest', 'back', 'quadriceps', 'shoulders'], exercises: FULLBODY_A_EXERCISES },
+      { name: 'Full Body B', focus: ['hamstrings', 'back', 'chest', 'shoulders'], exercises: FULLBODY_B_EXERCISES },
+    ];
+  } else if (actualGymDays <= 4) {
     splitType = 'upper_lower';
-    baseDays = UPPER_LOWER_ROUTINE;
     name = 'Rutina Upper/Lower';
-    description = 'Divide entre torso y piernas. Ideal para 4 días por semana.';
+    description = 'División torso/piernas adaptada a tu agenda de actividades.';
+    baseDays = [
+      { name: 'Upper (Torso)', focus: ['chest', 'back', 'shoulders', 'biceps', 'triceps'], exercises: UPPER_EXERCISES },
+      { name: 'Lower (Piernas)', focus: ['quadriceps', 'hamstrings', 'glutes', 'calves'], exercises: LOWER_EXERCISES },
+    ];
   } else {
-    // PPL for 5-6 days
     splitType = 'push_pull_legs';
-    baseDays = PPL_ROUTINE;
     name = 'Rutina Push/Pull/Legs';
-    description = 'División clásica por movimientos. Ideal para 5-6 días por semana.';
+    description = 'División clásica por movimientos, ajustada para evitar sobreentrenamiento.';
+    baseDays = [
+      { name: 'Push (Pecho, Hombros, Tríceps)', focus: ['chest', 'shoulders', 'triceps'], exercises: PUSH_EXERCISES },
+      { name: 'Pull (Espalda, Bíceps)', focus: ['back', 'biceps'], exercises: PULL_EXERCISES },
+      { name: 'Legs (Piernas)', focus: ['quadriceps', 'hamstrings', 'glutes', 'calves'], exercises: LEG_EXERCISES },
+    ];
   }
 
-  // Adjust sets/reps based on goal
-  const adjustedDays = baseDays.map(day => ({
-    ...day,
-    exercises: day.exercises.map(ex => {
+  // Adjust exercises based on fatigue and goals
+  const adjustedDays = baseDays.map(day => {
+    let exercises = day.exercises;
+
+    // Apply goal-based adjustments
+    exercises = exercises.map(ex => {
       let sets = ex.sets;
       let repsMin = ex.repsMin;
       let repsMax = ex.repsMax;
@@ -160,30 +256,26 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
 
       switch (fitnessGoal) {
         case 'muscle_gain':
-          // More volume
           sets = Math.min(ex.sets + 1, 5);
           repsMin = 8;
           repsMax = 12;
           restSeconds = Math.min(ex.restSeconds + 30, 180);
           break;
         case 'fat_loss':
-          // Higher reps, less rest
           repsMin = 12;
           repsMax = 15;
           restSeconds = Math.max(ex.restSeconds - 30, 45);
           break;
         case 'recomposition':
-          // Balanced
           repsMin = 8;
           repsMax = 12;
           break;
         case 'maintenance':
-          // Lower volume
           sets = Math.max(ex.sets - 1, 2);
           break;
       }
 
-      // Adjust for experience level
+      // Experience level adjustments
       if (experienceLevel === 'beginner') {
         sets = Math.max(sets - 1, 2);
         restSeconds = Math.min(restSeconds + 30, 180);
@@ -192,10 +284,55 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
       }
 
       return { ...ex, sets, repsMin, repsMax, restSeconds };
-    }),
-  }));
+    });
 
-  // Add goal-specific name suffix
+    return { ...day, exercises };
+  });
+
+  // Create weekly schedule mapping
+  const weeklySchedule: { [day: string]: string } = {};
+  const notes: string[] = [];
+
+  if (gymDays.length > 0) {
+    // Map gym days to routine days, considering fatigue
+    let routineDayIndex = 0;
+    
+    for (const gymDay of gymDays.sort((a, b) => DAYS_ORDER.indexOf(a) - DAYS_ORDER.indexOf(b))) {
+      const { avoid, reduce } = getAdjacentDayFatigue(gymDay, fatigueAnalysis.muscleLoadByDay);
+      
+      // Try to pick the best routine day that doesn't conflict with fatigue
+      let bestDayIndex = routineDayIndex % adjustedDays.length;
+      
+      // Check if the current routine day has conflicts
+      const routineDay = adjustedDays[bestDayIndex];
+      const hasConflict = routineDay.focus.some(f => avoid.includes(f));
+      
+      if (hasConflict && adjustedDays.length > 1) {
+        // Try another routine day
+        for (let i = 0; i < adjustedDays.length; i++) {
+          const altDay = adjustedDays[i];
+          if (!altDay.focus.some(f => avoid.includes(f))) {
+            bestDayIndex = i;
+            break;
+          }
+        }
+      }
+
+      weeklySchedule[gymDay] = adjustedDays[bestDayIndex].name;
+
+      // Add note if there's reduced volume needed
+      if (reduce.length > 0) {
+        const reduceMuscles = reduce.filter(m => routineDay.focus.includes(m));
+        if (reduceMuscles.length > 0) {
+          notes.push(`📋 ${gymDay}: Reduce volumen en ${reduceMuscles.join(', ')} (fatiga del día anterior/siguiente)`);
+        }
+      }
+
+      routineDayIndex++;
+    }
+  }
+
+  // Goal labels
   const goalLabels: Record<string, string> = {
     muscle_gain: 'Hipertrofia',
     fat_loss: 'Definición',
@@ -208,5 +345,7 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
     description,
     splitType,
     days: adjustedDays,
+    weeklySchedule: Object.keys(weeklySchedule).length > 0 ? weeklySchedule : undefined,
+    externalActivityNotes: [...fatigueAnalysis.recommendations, ...notes],
   };
 }
