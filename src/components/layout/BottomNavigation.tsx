@@ -1,13 +1,13 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Dumbbell, Utensils, CheckSquare, User } from 'lucide-react';
+import { Home, Dumbbell, Utensils, Users, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { path: '/', label: 'Hoy', icon: Home },
   { path: '/entreno', label: 'Entreno', icon: Dumbbell },
   { path: '/nutricion', label: 'Nutrición', icon: Utensils },
-  { path: '/habitos', label: 'Hábitos', icon: CheckSquare },
+  { path: '/comunidad', label: 'Social', icon: Users },
   { path: '/perfil', label: 'Perfil', icon: User },
 ];
 

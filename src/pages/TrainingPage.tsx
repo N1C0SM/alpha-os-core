@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import WeeklyVolumeCard from '@/components/workout/WeeklyVolumeCard';
+import ProgressInsights from '@/components/workout/ProgressInsights';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 
 const WEEKDAYS = [
