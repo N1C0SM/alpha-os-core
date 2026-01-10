@@ -95,21 +95,47 @@ export function useCommunityFeed() {
   });
 }
 
+// Upload image to community-images bucket
+export async function uploadPostImage(userId: string, file: File): Promise<string> {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${Date.now()}.${fileExt}`;
+  const filePath = `${userId}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('community-images')
+    .upload(filePath, file);
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage
+    .from('community-images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+}
+
 // Create a post
 export function useCreatePost() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (data: { content: string; image_url?: string; post_type?: string }) => {
+    mutationFn: async (data: { content: string; imageFile?: File; post_type?: string }) => {
       if (!user) throw new Error('Not authenticated');
+      
+      let image_url: string | null = null;
+      
+      // Upload image if provided
+      if (data.imageFile) {
+        image_url = await uploadPostImage(user.id, data.imageFile);
+      }
       
       const { data: post, error } = await supabase
         .from('posts')
         .insert({
           user_id: user.id,
           content: data.content,
-          image_url: data.image_url || null,
+          image_url,
           post_type: data.post_type || 'general',
         })
         .select()
