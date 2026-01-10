@@ -12,6 +12,8 @@ import {
   UserPlus,
   Target,
   Calendar,
+  X,
+  ImageIcon,
   ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -44,7 +46,9 @@ const CommunityPage: React.FC = () => {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [newPostContent, setNewPostContent] = useState('');
   const [newComment, setNewComment] = useState('');
-
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { data: profile } = useProfile();
   const { data: feed, isLoading: feedLoading } = useCommunityFeed();
   const { data: challenges, isLoading: challengesLoading } = useActiveChallenges();
@@ -56,12 +60,37 @@ const CommunityPage: React.FC = () => {
   const joinChallenge = useJoinChallenge();
   const { toast } = useToast();
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleCreatePost = async () => {
-    if (!newPostContent.trim()) return;
+    if (!newPostContent.trim() && !selectedImage) return;
     
     try {
-      await createPost.mutateAsync({ content: newPostContent });
+      await createPost.mutateAsync({ 
+        content: newPostContent,
+        imageFile: selectedImage || undefined,
+      });
       setNewPostContent('');
+      setSelectedImage(null);
+      setImagePreview(null);
       setIsNewPostOpen(false);
       toast({ title: '¡Post publicado!' });
     } catch (error) {
@@ -209,15 +238,55 @@ const CommunityPage: React.FC = () => {
               />
             </div>
 
+            {/* Image Preview */}
+            {imagePreview && (
+              <div className="relative rounded-xl overflow-hidden border border-border">
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="w-full max-h-64 object-cover"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 bg-background/80 hover:bg-background rounded-full h-8 w-8"
+                  onClick={removeSelectedImage}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
             <div className="flex items-center justify-between">
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
-                <Camera className="w-5 h-5 mr-2" />
-                Foto
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-primary"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {selectedImage ? (
+                  <>
+                    <ImageIcon className="w-5 h-5 mr-2 text-primary" />
+                    <span className="text-primary">Foto añadida</span>
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-5 h-5 mr-2" />
+                    Foto
+                  </>
+                )}
               </Button>
               
               <Button 
                 onClick={handleCreatePost}
-                disabled={!newPostContent.trim() || createPost.isPending}
+                disabled={(!newPostContent.trim() && !selectedImage) || createPost.isPending}
                 className="bg-primary text-primary-foreground"
               >
                 {createPost.isPending ? (
