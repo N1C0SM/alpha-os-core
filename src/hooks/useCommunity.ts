@@ -13,12 +13,13 @@ export interface Post {
   is_public: boolean;
   created_at: string;
   updated_at: string;
-  // Joined data
   author?: {
+    id: string;
     full_name: string | null;
     avatar_url: string | null;
   };
   liked_by_me?: boolean;
+  is_following?: boolean;
 }
 
 export interface PostComment {
@@ -50,20 +51,55 @@ export interface Challenge {
   } | null;
 }
 
-// Fetch community feed
-export function useCommunityFeed() {
+export interface UserToFollow {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  is_following: boolean;
+}
+
+// Fetch users the current user is following
+export function useFollowing() {
   const { user } = useAuth();
-  
+
   return useQuery({
-    queryKey: ['community-feed', user?.id],
+    queryKey: ['following', user?.id],
     queryFn: async () => {
-      // Get posts with author info
-      const { data: posts, error } = await supabase
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('user_follows')
+        .select('following_id')
+        .eq('follower_id', user.id);
+
+      if (error) throw error;
+      return data?.map(f => f.following_id) || [];
+    },
+    enabled: !!user,
+  });
+}
+
+// Fetch community feed with follow status
+export function useCommunityFeed(filterFollowing: boolean = false) {
+  const { user } = useAuth();
+  const { data: followingIds } = useFollowing();
+
+  return useQuery({
+    queryKey: ['community-feed', user?.id, filterFollowing, followingIds],
+    queryFn: async () => {
+      let query = supabase
         .from('posts')
         .select('*')
         .eq('is_public', true)
         .order('created_at', { ascending: false })
         .limit(50);
+
+      // Filter by followed users if requested
+      if (filterFollowing && followingIds && followingIds.length > 0) {
+        query = query.in('user_id', followingIds);
+      }
+
+      const { data: posts, error } = await query;
 
       if (error) throw error;
 
@@ -87,11 +123,106 @@ export function useCommunityFeed() {
       // Map posts with author and like status
       return posts?.map(post => ({
         ...post,
-        author: profiles?.find(p => p.id === post.user_id),
+        author: profiles?.find(p => p.id === post.user_id) ? {
+          ...profiles?.find(p => p.id === post.user_id),
+          id: post.user_id,
+        } : undefined,
         liked_by_me: myLikes.includes(post.id),
+        is_following: followingIds?.includes(post.user_id) || false,
       })) as Post[];
     },
     enabled: true,
+  });
+}
+
+// Fetch suggested users to follow
+export function useSuggestedUsers() {
+  const { user } = useAuth();
+  const { data: followingIds } = useFollowing();
+
+  return useQuery({
+    queryKey: ['suggested-users', user?.id, followingIds],
+    queryFn: async () => {
+      if (!user) return [];
+
+      // Get users who have posted, excluding current user and already followed
+      const { data: posts } = await supabase
+        .from('posts')
+        .select('user_id')
+        .eq('is_public', true)
+        .neq('user_id', user.id)
+        .limit(100);
+
+      const uniqueUserIds = [...new Set(posts?.map(p => p.user_id) || [])]
+        .filter(id => !followingIds?.includes(id))
+        .slice(0, 10);
+
+      if (uniqueUserIds.length === 0) return [];
+
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', uniqueUserIds);
+
+      if (error) throw error;
+
+      return profiles?.map(p => ({
+        ...p,
+        is_following: false,
+      })) as UserToFollow[];
+    },
+    enabled: !!user,
+  });
+}
+
+// Follow a user
+export function useFollowUser() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('user_follows')
+        .insert({
+          follower_id: user.id,
+          following_id: userId,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['following'] });
+      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
+      queryClient.invalidateQueries({ queryKey: ['suggested-users'] });
+    },
+  });
+}
+
+// Unfollow a user
+export function useUnfollowUser() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('user_follows')
+        .delete()
+        .eq('follower_id', user.id)
+        .eq('following_id', userId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['following'] });
+      queryClient.invalidateQueries({ queryKey: ['community-feed'] });
+      queryClient.invalidateQueries({ queryKey: ['suggested-users'] });
+    },
   });
 }
 

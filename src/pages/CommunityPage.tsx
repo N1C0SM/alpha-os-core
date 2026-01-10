@@ -35,13 +35,19 @@ import {
   useAddComment,
   useActiveChallenges,
   useJoinChallenge,
+  useSuggestedUsers,
+  useFollowUser,
+  useUnfollowUser,
   Post,
   Challenge,
+  UserToFollow,
 } from '@/hooks/useCommunity';
 import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/contexts/AuthContext';
 
 const CommunityPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'feed' | 'challenges'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'challenges' | 'discover'>('feed');
+  const [feedFilter, setFeedFilter] = useState<'all' | 'following'>('all');
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [newPostContent, setNewPostContent] = useState('');
@@ -49,15 +55,20 @@ const CommunityPage: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const { user } = useAuth();
   const { data: profile } = useProfile();
-  const { data: feed, isLoading: feedLoading } = useCommunityFeed();
+  const { data: feed, isLoading: feedLoading } = useCommunityFeed(feedFilter === 'following');
   const { data: challenges, isLoading: challengesLoading } = useActiveChallenges();
   const { data: comments, isLoading: commentsLoading } = usePostComments(selectedPost?.id || null);
+  const { data: suggestedUsers, isLoading: suggestedLoading } = useSuggestedUsers();
   
   const createPost = useCreatePost();
   const toggleLike = useToggleLike();
   const addComment = useAddComment();
   const joinChallenge = useJoinChallenge();
+  const followUser = useFollowUser();
+  const unfollowUser = useUnfollowUser();
   const { toast } = useToast();
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,6 +137,24 @@ const CommunityPage: React.FC = () => {
     }
   };
 
+  const handleFollow = async (userId: string) => {
+    try {
+      await followUser.mutateAsync(userId);
+      toast({ title: '¡Ahora sigues a este usuario!' });
+    } catch (error) {
+      toast({ title: 'Error al seguir', variant: 'destructive' });
+    }
+  };
+
+  const handleUnfollow = async (userId: string) => {
+    try {
+      await unfollowUser.mutateAsync(userId);
+      toast({ title: 'Has dejado de seguir' });
+    } catch (error) {
+      toast({ title: 'Error', variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
@@ -161,6 +190,13 @@ const CommunityPage: React.FC = () => {
               Feed
             </TabsTrigger>
             <TabsTrigger 
+              value="discover" 
+              className="flex-1 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground"
+            >
+              <UserPlus className="w-4 h-4 mr-2" />
+              Descubrir
+            </TabsTrigger>
+            <TabsTrigger 
               value="challenges" 
               className="flex-1 rounded-lg data-[state=active]:bg-card data-[state=active]:text-foreground"
             >
@@ -175,19 +211,97 @@ const CommunityPage: React.FC = () => {
       <div className="px-5">
         {activeTab === 'feed' && (
           <div className="space-y-4">
+            {/* Feed Filter */}
+            <div className="flex gap-2">
+              <Button
+                variant={feedFilter === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFeedFilter('all')}
+                className={cn(
+                  "rounded-full",
+                  feedFilter === 'all' 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-secondary/50 border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Todos
+              </Button>
+              <Button
+                variant={feedFilter === 'following' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFeedFilter('following')}
+                className={cn(
+                  "rounded-full",
+                  feedFilter === 'following' 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-secondary/50 border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Siguiendo
+              </Button>
+            </div>
+
             {feedLoading ? (
               <div className="flex justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : feed?.length === 0 ? (
-              <EmptyFeed onCreatePost={() => setIsNewPostOpen(true)} />
+              feedFilter === 'following' ? (
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-4">
+                    <UserPlus className="w-10 h-10 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">No sigues a nadie aún</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Descubre usuarios y síguelos para ver su contenido aquí
+                  </p>
+                  <Button onClick={() => setActiveTab('discover')} className="bg-primary text-primary-foreground">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Descubrir usuarios
+                  </Button>
+                </div>
+              ) : (
+                <EmptyFeed onCreatePost={() => setIsNewPostOpen(true)} />
+              )
             ) : (
               feed?.map((post) => (
                 <PostCard
                   key={post.id}
                   post={post}
+                  currentUserId={user?.id}
                   onLike={() => handleLike(post)}
                   onComment={() => setSelectedPost(post)}
+                  onFollow={() => handleFollow(post.user_id)}
+                  onUnfollow={() => handleUnfollow(post.user_id)}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'discover' && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">Usuarios sugeridos</h3>
+            {suggestedLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : suggestedUsers?.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-10 h-10 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No hay sugerencias</h3>
+                <p className="text-muted-foreground text-sm">
+                  Pronto aparecerán más usuarios aquí
+                </p>
+              </div>
+            ) : (
+              suggestedUsers?.map((userToFollow) => (
+                <UserCard
+                  key={userToFollow.id}
+                  user={userToFollow}
+                  onFollow={() => handleFollow(userToFollow.id)}
                 />
               ))
             )}
@@ -380,11 +494,16 @@ const CommunityPage: React.FC = () => {
 
 interface PostCardProps {
   post: Post;
+  currentUserId?: string;
   onLike: () => void;
   onComment: () => void;
+  onFollow: () => void;
+  onUnfollow: () => void;
 }
 
-const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment }) => {
+const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onLike, onComment, onFollow, onUnfollow }) => {
+  const isOwnPost = currentUserId === post.user_id;
+  
   return (
     <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
       {/* Author */}
@@ -403,6 +522,30 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment }) => {
             {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: es })}
           </p>
         </div>
+        
+        {/* Follow/Unfollow button */}
+        {!isOwnPost && (
+          post.is_following ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onUnfollow}
+              className="rounded-full border-border text-muted-foreground hover:text-foreground"
+            >
+              Siguiendo
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={onFollow}
+              className="rounded-full bg-primary text-primary-foreground"
+            >
+              <UserPlus className="w-4 h-4 mr-1" />
+              Seguir
+            </Button>
+          )
+        )}
+        
         {post.post_type !== 'general' && (
           <span className={cn(
             "px-2 py-1 rounded-full text-xs font-medium",
@@ -454,6 +597,40 @@ const PostCard: React.FC<PostCardProps> = ({ post, onLike, onComment }) => {
           <span className="text-sm">{post.comments_count}</span>
         </button>
       </div>
+    </div>
+  );
+};
+
+interface UserCardProps {
+  user: UserToFollow;
+  onFollow: () => void;
+}
+
+const UserCard: React.FC<UserCardProps> = ({ user, onFollow }) => {
+  return (
+    <div className="bg-card rounded-2xl border border-border/50 p-4 flex items-center gap-4">
+      <Avatar className="h-14 w-14">
+        <AvatarImage src={user.avatar_url || ''} />
+        <AvatarFallback className="bg-primary/20 text-primary text-lg">
+          {user.full_name?.[0] || 'U'}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1">
+        <p className="font-medium text-foreground text-lg">
+          {user.full_name || 'Usuario'}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Comparte su progreso contigo
+        </p>
+      </div>
+      <Button
+        size="sm"
+        onClick={onFollow}
+        className="rounded-full bg-primary text-primary-foreground"
+      >
+        <UserPlus className="w-4 h-4 mr-1" />
+        Seguir
+      </Button>
     </div>
   );
 };
