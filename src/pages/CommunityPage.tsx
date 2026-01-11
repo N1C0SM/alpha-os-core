@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Heart, 
@@ -14,7 +15,8 @@ import {
   Calendar,
   X,
   ImageIcon,
-  ChevronRight
+  ChevronRight,
+  Search
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +38,7 @@ import {
   useActiveChallenges,
   useJoinChallenge,
   useSuggestedUsers,
+  useSearchUsers,
   useFollowUser,
   useUnfollowUser,
   Post,
@@ -54,6 +57,7 @@ const CommunityPage: React.FC = () => {
   const [newComment, setNewComment] = useState('');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const { user } = useAuth();
@@ -62,6 +66,7 @@ const CommunityPage: React.FC = () => {
   const { data: challenges, isLoading: challengesLoading } = useActiveChallenges();
   const { data: comments, isLoading: commentsLoading } = usePostComments(selectedPost?.id || null);
   const { data: suggestedUsers, isLoading: suggestedLoading } = useSuggestedUsers();
+  const { data: searchResults, isLoading: searchLoading } = useSearchUsers(searchQuery);
   
   const createPost = useCreatePost();
   const toggleLike = useToggleLike();
@@ -281,29 +286,83 @@ const CommunityPage: React.FC = () => {
 
         {activeTab === 'discover' && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Usuarios sugeridos</h3>
-            {suggestedLoading ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            ) : suggestedUsers?.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-10 h-10 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">No hay sugerencias</h3>
-                <p className="text-muted-foreground text-sm">
-                  Pronto aparecerán más usuarios aquí
-                </p>
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar usuarios por nombre..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-secondary/50 border-border"
+              />
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
+
+            {/* Search Results */}
+            {searchQuery.trim().length >= 2 ? (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-foreground">Resultados</h3>
+                {searchLoading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : searchResults?.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-3">
+                      <Search className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground text-sm">
+                      No se encontraron usuarios con "{searchQuery}"
+                    </p>
+                  </div>
+                ) : (
+                  searchResults?.map((userToFollow) => (
+                    <UserCard
+                      key={userToFollow.id}
+                      user={userToFollow}
+                      onFollow={() => userToFollow.is_following ? handleUnfollow(userToFollow.id) : handleFollow(userToFollow.id)}
+                      isFollowing={userToFollow.is_following}
+                    />
+                  ))
+                )}
               </div>
             ) : (
-              suggestedUsers?.map((userToFollow) => (
-                <UserCard
-                  key={userToFollow.id}
-                  user={userToFollow}
-                  onFollow={() => handleFollow(userToFollow.id)}
-                />
-              ))
+              <>
+                {/* Suggested Users */}
+                <h3 className="text-lg font-semibold text-foreground">Usuarios sugeridos</h3>
+                {suggestedLoading ? (
+                  <div className="flex justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : suggestedUsers?.length === 0 ? (
+                  <div className="text-center py-16">
+                    <div className="w-20 h-20 rounded-full bg-secondary/50 flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-10 h-10 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">No hay sugerencias</h3>
+                    <p className="text-muted-foreground text-sm">
+                      Pronto aparecerán más usuarios aquí
+                    </p>
+                  </div>
+                ) : (
+                  suggestedUsers?.map((userToFollow) => (
+                    <UserCard
+                      key={userToFollow.id}
+                      user={userToFollow}
+                      onFollow={() => handleFollow(userToFollow.id)}
+                    />
+                  ))
+                )}
+              </>
             )}
           </div>
         )}
@@ -606,21 +665,36 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onLike, onComm
 interface UserCardProps {
   user: UserToFollow;
   onFollow: () => void;
+  isFollowing?: boolean;
 }
 
-const UserCard: React.FC<UserCardProps> = ({ user, onFollow }) => {
+const UserCard: React.FC<UserCardProps> = ({ user, onFollow, isFollowing = false }) => {
+  const navigate = useNavigate();
+  
   return (
     <div className="bg-card rounded-2xl border border-border/50 p-4 flex items-center gap-4">
-      <Avatar className="h-14 w-14">
-        <AvatarImage src={user.avatar_url || ''} />
-        <AvatarFallback className="bg-primary/20 text-primary text-lg">
-          {user.full_name?.[0] || 'U'}
-        </AvatarFallback>
-      </Avatar>
+      <a 
+        href={`/usuario/${user.id}`}
+        onClick={(e) => { e.preventDefault(); navigate(`/usuario/${user.id}`); }}
+        className="cursor-pointer"
+      >
+        <Avatar className="h-14 w-14">
+          <AvatarImage src={user.avatar_url || ''} />
+          <AvatarFallback className="bg-primary/20 text-primary text-lg">
+            {user.full_name?.[0] || 'U'}
+          </AvatarFallback>
+        </Avatar>
+      </a>
       <div className="flex-1">
-        <p className="font-medium text-foreground text-lg">
-          {user.full_name || 'Usuario'}
-        </p>
+        <a 
+          href={`/usuario/${user.id}`}
+          onClick={(e) => { e.preventDefault(); navigate(`/usuario/${user.id}`); }}
+          className="cursor-pointer hover:underline"
+        >
+          <p className="font-medium text-foreground text-lg">
+            {user.full_name || 'Usuario'}
+          </p>
+        </a>
         <p className="text-sm text-muted-foreground">
           Comparte su progreso contigo
         </p>
@@ -628,10 +702,22 @@ const UserCard: React.FC<UserCardProps> = ({ user, onFollow }) => {
       <Button
         size="sm"
         onClick={onFollow}
-        className="rounded-full bg-primary text-primary-foreground"
+        variant={isFollowing ? "outline" : "default"}
+        className={cn(
+          "rounded-full",
+          isFollowing 
+            ? "border-border text-muted-foreground hover:text-foreground" 
+            : "bg-primary text-primary-foreground"
+        )}
       >
-        <UserPlus className="w-4 h-4 mr-1" />
-        Seguir
+        {isFollowing ? (
+          'Siguiendo'
+        ) : (
+          <>
+            <UserPlus className="w-4 h-4 mr-1" />
+            Seguir
+          </>
+        )}
       </Button>
     </div>
   );
