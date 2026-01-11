@@ -175,6 +175,34 @@ export function useSuggestedUsers() {
   });
 }
 
+// Search users by name
+export function useSearchUsers(searchQuery: string) {
+  const { user } = useAuth();
+  const { data: followingIds } = useFollowing();
+
+  return useQuery({
+    queryKey: ['search-users', searchQuery, user?.id, followingIds],
+    queryFn: async () => {
+      if (!user || !searchQuery.trim()) return [];
+
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .neq('id', user.id)
+        .ilike('full_name', `%${searchQuery}%`)
+        .limit(20);
+
+      if (error) throw error;
+
+      return profiles?.map(p => ({
+        ...p,
+        is_following: followingIds?.includes(p.id) || false,
+      })) as UserToFollow[];
+    },
+    enabled: !!user && searchQuery.trim().length >= 2,
+  });
+}
+
 // Follow a user
 export function useFollowUser() {
   const queryClient = useQueryClient();
