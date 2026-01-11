@@ -508,16 +508,18 @@ const PostCard: React.FC<PostCardProps> = ({ post, currentUserId, onLike, onComm
     <div className="bg-card rounded-2xl border border-border/50 overflow-hidden">
       {/* Author */}
       <div className="p-4 flex items-center gap-3">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={post.author?.avatar_url || ''} />
-          <AvatarFallback className="bg-primary/20 text-primary">
-            {post.author?.full_name?.[0] || 'U'}
-          </AvatarFallback>
-        </Avatar>
+        <a href={`/usuario/${post.user_id}`} className="cursor-pointer">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src={post.author?.avatar_url || ''} />
+            <AvatarFallback className="bg-primary/20 text-primary">
+              {post.author?.full_name?.[0] || 'U'}
+            </AvatarFallback>
+          </Avatar>
+        </a>
         <div className="flex-1">
-          <p className="font-medium text-foreground">
+          <a href={`/usuario/${post.user_id}`} className="font-medium text-foreground hover:underline">
             {post.author?.full_name || 'Usuario'}
-          </p>
+          </a>
           <p className="text-xs text-muted-foreground">
             {formatDistanceToNow(new Date(post.created_at), { addSuffix: true, locale: es })}
           </p>

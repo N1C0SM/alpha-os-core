@@ -251,7 +251,18 @@ export function useCreatePost() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (data: { content: string; imageFile?: File; post_type?: string }) => {
+    mutationFn: async (data: { 
+      content: string; 
+      imageFile?: File; 
+      post_type?: string;
+      workoutData?: {
+        name: string;
+        duration: number;
+        exerciseCount: number;
+        totalSets: number;
+        newPRs?: number;
+      };
+    }) => {
       if (!user) throw new Error('Not authenticated');
       
       let image_url: string | null = null;
@@ -260,12 +271,19 @@ export function useCreatePost() {
       if (data.imageFile) {
         image_url = await uploadPostImage(user.id, data.imageFile);
       }
+
+      // Build content for workout posts
+      let finalContent = data.content;
+      if (data.post_type === 'workout' && data.workoutData) {
+        const { name, duration, exerciseCount, totalSets, newPRs } = data.workoutData;
+        finalContent = `💪 Entreno completado: ${name}\n\n⏱️ ${duration} min\n🏋️ ${exerciseCount} ejercicios\n🔥 ${totalSets} series${newPRs ? `\n🏆 ${newPRs} nuevos PRs!` : ''}\n\n${data.content || ''}`;
+      }
       
       const { data: post, error } = await supabase
         .from('posts')
         .insert({
           user_id: user.id,
-          content: data.content,
+          content: finalContent.trim(),
           image_url,
           post_type: data.post_type || 'general',
         })
@@ -277,6 +295,7 @@ export function useCreatePost() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['community-feed'] });
+      queryClient.invalidateQueries({ queryKey: ['user-posts'] });
     },
   });
 }

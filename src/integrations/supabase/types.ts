@@ -660,6 +660,11 @@ export type Database = {
           height_cm: number | null
           id: string
           onboarding_completed: boolean | null
+          show_goals: boolean | null
+          show_habits: boolean | null
+          show_hydration: boolean | null
+          show_schedule: boolean | null
+          show_supplements: boolean | null
           updated_at: string | null
           weight_kg: number | null
         }
@@ -678,6 +683,11 @@ export type Database = {
           height_cm?: number | null
           id: string
           onboarding_completed?: boolean | null
+          show_goals?: boolean | null
+          show_habits?: boolean | null
+          show_hydration?: boolean | null
+          show_schedule?: boolean | null
+          show_supplements?: boolean | null
           updated_at?: string | null
           weight_kg?: number | null
         }
@@ -696,6 +706,11 @@ export type Database = {
           height_cm?: number | null
           id?: string
           onboarding_completed?: boolean | null
+          show_goals?: boolean | null
+          show_habits?: boolean | null
+          show_hydration?: boolean | null
+          show_schedule?: boolean | null
+          show_supplements?: boolean | null
           updated_at?: string | null
           weight_kg?: number | null
         }
@@ -1242,7 +1257,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_followers_count: { Args: { target_user_id: string }; Returns: number }
+      get_following_count: { Args: { target_user_id: string }; Returns: number }
     }
     Enums: {
       exercise_category: "compound" | "isolation" | "cardio" | "stretching"
