@@ -25,6 +25,7 @@ import SchedulePage from "./pages/SchedulePage";
 import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
 import CommunityPage from "./pages/CommunityPage";
+import PublicProfilePage from "./pages/PublicProfilePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
                 <Route path="/perfil/horarios" element={<SchedulePage />} />
                 <Route path="/perfil/config" element={<SettingsPage />} />
                 <Route path="/instalar" element={<InstallPage />} />
+                <Route path="/usuario/:userId" element={<PublicProfilePage />} />
               </Route>
               
               {/* Catch-all */}

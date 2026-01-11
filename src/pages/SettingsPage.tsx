@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Bell, Moon, Sun, LogOut, Loader2, Dumbbell, Utensils, Droplets, Pill, CheckSquare, Crown, CreditCard } from 'lucide-react';
+import { ArrowLeft, Bell, Moon, Sun, LogOut, Loader2, Dumbbell, Utensils, Droplets, Pill, CheckSquare, Crown, CreditCard, Eye, EyeOff, Calendar, Target, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +8,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
 import { usePreferences, useUpdatePreferences } from '@/hooks/usePreferences';
-import { useUserSchedule } from '@/hooks/useProfile';
+import { useUserSchedule, useProfile, useUpdateProfile } from '@/hooks/useProfile';
 import { useNotifications, notificationScheduler } from '@/hooks/useNotifications';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -20,7 +20,9 @@ const SettingsPage: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const { data: preferences, isLoading: prefsLoading } = usePreferences();
   const { data: schedule } = useUserSchedule();
+  const { data: profile } = useProfile();
   const updatePreferences = useUpdatePreferences();
+  const updateProfile = useUpdateProfile();
   const { permission, requestPermission, isSupported, sendNotification } = useNotifications();
   const { isPremium, subscriptionEnd, openCheckout, openCustomerPortal, isLoading: subLoading } = useSubscription();
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -431,6 +433,118 @@ const SettingsPage: React.FC = () => {
                   Actualizar a Premium - 4,99€/mes
                 </Button>
               )}
+            </div>
+          </div>
+        </div>
+
+        {/* Privacy Section */}
+        <div className="space-y-3 pt-4">
+          <h2 className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+            Privacidad del perfil
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Elige qué información mostrar en tu perfil público (feed y rutinas siempre visibles)
+          </p>
+          
+          <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+            {/* Habits */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <CheckSquare className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-foreground">Hábitos</span>
+              </div>
+              <Switch 
+                checked={profile?.show_habits || false} 
+                onCheckedChange={async (checked) => {
+                  try {
+                    await updateProfile.mutateAsync({ show_habits: checked });
+                    toast({ title: checked ? 'Hábitos visibles' : 'Hábitos ocultos' });
+                  } catch {
+                    toast({ title: 'Error al guardar', variant: 'destructive' });
+                  }
+                }}
+                disabled={updateProfile.isPending}
+              />
+            </div>
+
+            {/* Supplements */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Pill className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-foreground">Suplementos</span>
+              </div>
+              <Switch 
+                checked={profile?.show_supplements || false} 
+                onCheckedChange={async (checked) => {
+                  try {
+                    await updateProfile.mutateAsync({ show_supplements: checked });
+                    toast({ title: checked ? 'Suplementos visibles' : 'Suplementos ocultos' });
+                  } catch {
+                    toast({ title: 'Error al guardar', variant: 'destructive' });
+                  }
+                }}
+                disabled={updateProfile.isPending}
+              />
+            </div>
+
+            {/* Hydration */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Droplets className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-foreground">Hidratación</span>
+              </div>
+              <Switch 
+                checked={profile?.show_hydration || false} 
+                onCheckedChange={async (checked) => {
+                  try {
+                    await updateProfile.mutateAsync({ show_hydration: checked });
+                    toast({ title: checked ? 'Hidratación visible' : 'Hidratación oculta' });
+                  } catch {
+                    toast({ title: 'Error al guardar', variant: 'destructive' });
+                  }
+                }}
+                disabled={updateProfile.isPending}
+              />
+            </div>
+
+            {/* Schedule */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-foreground">Horarios</span>
+              </div>
+              <Switch 
+                checked={profile?.show_schedule || false} 
+                onCheckedChange={async (checked) => {
+                  try {
+                    await updateProfile.mutateAsync({ show_schedule: checked });
+                    toast({ title: checked ? 'Horarios visibles' : 'Horarios ocultos' });
+                  } catch {
+                    toast({ title: 'Error al guardar', variant: 'destructive' });
+                  }
+                }}
+                disabled={updateProfile.isPending}
+              />
+            </div>
+
+            {/* Goals */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Target className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm text-foreground">Objetivos</span>
+              </div>
+              <Switch 
+                checked={profile?.show_goals || false} 
+                onCheckedChange={async (checked) => {
+                  try {
+                    await updateProfile.mutateAsync({ show_goals: checked });
+                    toast({ title: checked ? 'Objetivos visibles' : 'Objetivos ocultos' });
+                  } catch {
+                    toast({ title: 'Error al guardar', variant: 'destructive' });
+                  }
+                }}
+                disabled={updateProfile.isPending}
+              />
             </div>
           </div>
         </div>
