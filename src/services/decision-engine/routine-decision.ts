@@ -43,69 +43,81 @@ export interface RoutineRecommendation {
 
 const DAYS_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
-// ============= Exercise Templates =============
+// ============= Exercise Templates (Gym Bro Optimized) =============
 
 const PUSH_EXERCISES = [
-  { name: 'Press Banca', muscleGroup: 'chest', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-  { name: 'Press Inclinado Mancuernas', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
+  // Compound strength first - 5x5 style
+  { name: 'Press Banca', muscleGroup: 'chest', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
+  { name: 'Press Inclinado Mancuernas', muscleGroup: 'chest', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Aperturas con Mancuernas', muscleGroup: 'chest', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 4, repsMin: 8, repsMax: 10, restSeconds: 120 },
+  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 4, repsMin: 12, repsMax: 15, restSeconds: 45 },
   { name: 'Fondos en Paralelas', muscleGroup: 'triceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
   { name: 'Extensiones Tríceps Polea', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Press Francés', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
 ];
 
 const PULL_EXERCISES = [
+  // Heavy compounds first
   { name: 'Dominadas', muscleGroup: 'back', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-  { name: 'Remo con Barra', muscleGroup: 'back', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Remo con Barra', muscleGroup: 'back', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
   { name: 'Jalón al Pecho', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
   { name: 'Remo Mancuerna', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Curl Bíceps Barra', muscleGroup: 'biceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 60 },
-  { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Face Pulls', muscleGroup: 'shoulders', sets: 4, repsMin: 15, repsMax: 20, restSeconds: 45 },
+  { name: 'Curl Bíceps Barra', muscleGroup: 'biceps', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 60 },
+  { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
+  { name: 'Curl Concentrado', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 45 },
 ];
 
 const LEG_EXERCISES = [
-  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 180 },
-  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 120 },
-  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
+  // King of exercises first
+  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
+  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 10, restSeconds: 120 },
+  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 90 },
+  { name: 'Extensiones de Cuádriceps', muscleGroup: 'quadriceps', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
   { name: 'Curl Femoral', muscleGroup: 'hamstrings', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
-  { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 4, repsMin: 12, repsMax: 20, restSeconds: 60 },
+  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 90 },
+  { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 5, repsMin: 12, repsMax: 20, restSeconds: 45 },
 ];
 
 const UPPER_EXERCISES = [
-  { name: 'Press Banca', muscleGroup: 'chest', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-  { name: 'Remo con Barra', muscleGroup: 'back', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Press Banca', muscleGroup: 'chest', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
+  { name: 'Remo con Barra', muscleGroup: 'back', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
+  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 4, repsMin: 8, repsMax: 10, restSeconds: 120 },
   { name: 'Jalón al Pecho', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
-  { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Face Pulls', muscleGroup: 'shoulders', sets: 3, repsMin: 15, repsMax: 20, restSeconds: 45 },
+  { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 60 },
+  { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 60 },
 ];
 
 const LOWER_EXERCISES = [
-  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 180 },
-  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 120 },
-  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
-  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 90 },
+  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
+  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 10, restSeconds: 120 },
+  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 90 },
+  { name: 'Zancadas', muscleGroup: 'quadriceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
+  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 90 },
   { name: 'Curl Femoral', muscleGroup: 'hamstrings', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-  { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 4, repsMin: 12, repsMax: 20, restSeconds: 60 },
+  { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 5, repsMin: 12, repsMax: 20, restSeconds: 45 },
 ];
 
 const FULLBODY_A_EXERCISES = [
-  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 180 },
-  { name: 'Press Banca', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 120 },
-  { name: 'Remo con Barra', muscleGroup: 'back', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 4, repsMin: 5, repsMax: 8, restSeconds: 180 },
+  { name: 'Press Banca', muscleGroup: 'chest', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
+  { name: 'Remo con Barra', muscleGroup: 'back', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
   { name: 'Press Militar', muscleGroup: 'shoulders', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
-  { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
+  { name: 'Face Pulls', muscleGroup: 'shoulders', sets: 3, repsMin: 15, repsMax: 20, restSeconds: 45 },
+  { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
+  { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
 ];
 
 const FULLBODY_B_EXERCISES = [
-  { name: 'Peso Muerto', muscleGroup: 'hamstrings', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 180 },
-  { name: 'Press Inclinado', muscleGroup: 'chest', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Dominadas', muscleGroup: 'back', sets: 3, repsMin: 6, repsMax: 10, restSeconds: 120 },
-  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
-  { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 2, repsMin: 10, repsMax: 15, restSeconds: 60 },
-  { name: 'Fondos', muscleGroup: 'triceps', sets: 2, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Peso Muerto', muscleGroup: 'hamstrings', sets: 4, repsMin: 5, repsMax: 8, restSeconds: 180 },
+  { name: 'Press Inclinado', muscleGroup: 'chest', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
+  { name: 'Dominadas', muscleGroup: 'back', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
+  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 4, repsMin: 12, repsMax: 15, restSeconds: 45 },
+  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
+  { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
+  { name: 'Fondos', muscleGroup: 'triceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
 ];
 
 // ============= Fatigue Analysis =============
