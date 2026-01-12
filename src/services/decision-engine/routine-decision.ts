@@ -194,18 +194,67 @@ function getAdjacentDayFatigue(
   return { avoid: [...new Set(avoid)], reduce: [...new Set(reduce)] };
 }
 
+// Calculate body composition category based on weight and height
+function getBodyCompositionCategory(weightKg?: number, heightCm?: number): 'light' | 'average' | 'heavy' {
+  if (!weightKg || !heightCm) return 'average';
+  
+  const heightM = heightCm / 100;
+  const bmi = weightKg / (heightM * heightM);
+  
+  if (bmi < 20) return 'light';
+  if (bmi > 27) return 'heavy';
+  return 'average';
+}
+
+// Adjust volume based on body composition
+function getVolumeMultiplier(bodyCategory: 'light' | 'average' | 'heavy', fitnessGoal: string): number {
+  // Heavier individuals may need more volume for hypertrophy but less for fat loss
+  // Lighter individuals may benefit from slightly higher volume for muscle gain
+  if (fitnessGoal === 'muscle_gain') {
+    if (bodyCategory === 'light') return 1.15; // Needs more stimulus
+    if (bodyCategory === 'heavy') return 0.9;  // Already has base, focus on intensity
+    return 1.0;
+  }
+  if (fitnessGoal === 'fat_loss') {
+    if (bodyCategory === 'heavy') return 1.1; // More volume for calorie burn
+    if (bodyCategory === 'light') return 0.9; // Preserve muscle, less volume
+    return 1.0;
+  }
+  return 1.0;
+}
+
+// Get intensity recommendation based on body composition
+function getIntensityAdjustment(bodyCategory: 'light' | 'average' | 'heavy'): { repsAdjust: number; restAdjust: number } {
+  if (bodyCategory === 'heavy') {
+    // Heavier individuals may need more rest between sets
+    return { repsAdjust: 0, restAdjust: 15 };
+  }
+  if (bodyCategory === 'light') {
+    // Lighter individuals can often handle shorter rest
+    return { repsAdjust: 1, restAdjust: -10 };
+  }
+  return { repsAdjust: 0, restAdjust: 0 };
+}
+
 export function routineDecision(input: RoutineDecisionInput): RoutineRecommendation {
   const { 
     fitnessGoal, 
     experienceLevel, 
     daysPerWeek, 
     externalActivities = {},
-    preferredGymDays = [] 
+    preferredGymDays = [],
+    weightKg,
+    heightCm 
   } = input;
 
   const fatigueAnalysis = analyzeFatigue(externalActivities);
   const gymDays = preferredGymDays.length > 0 ? preferredGymDays : [];
   const actualGymDays = gymDays.length || daysPerWeek;
+
+  // Body composition analysis for personalization
+  const bodyCategory = getBodyCompositionCategory(weightKg, heightCm);
+  const volumeMultiplier = getVolumeMultiplier(bodyCategory, fitnessGoal);
+  const intensityAdjust = getIntensityAdjustment(bodyCategory);
 
   // Determine best split based on available gym days
   let splitType: RoutineRecommendation['splitType'];
@@ -216,6 +265,7 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
   // With external activities, we need a more flexible approach
   const hasSignificantExternalLoad = Object.keys(externalActivities).length >= 2;
 
+  // Consider gym days from schedule for optimal split selection
   if (actualGymDays <= 2 || (actualGymDays <= 3 && hasSignificantExternalLoad)) {
     splitType = 'full_body';
     name = 'Rutina Full Body';
@@ -243,11 +293,21 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
     ];
   }
 
-  // Adjust exercises based on fatigue and goals
+  // Add personalization notes
+  const personalNotes: string[] = [];
+  if (weightKg && heightCm) {
+    if (bodyCategory === 'light') {
+      personalNotes.push('📊 Tu composición corporal sugiere enfoque en volumen moderado-alto para estimular crecimiento');
+    } else if (bodyCategory === 'heavy') {
+      personalNotes.push('📊 Tu composición corporal sugiere enfoque en intensidad con descansos adecuados');
+    }
+  }
+
+  // Adjust exercises based on fatigue, goals, and body composition
   const adjustedDays = baseDays.map(day => {
     let exercises = day.exercises;
 
-    // Apply goal-based adjustments
+    // Apply goal-based and body composition adjustments
     exercises = exercises.map(ex => {
       let sets = ex.sets;
       let repsMin = ex.repsMin;
@@ -282,6 +342,12 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
       } else if (experienceLevel === 'advanced') {
         sets = Math.min(sets + 1, 6);
       }
+
+      // Apply body composition adjustments
+      sets = Math.round(sets * volumeMultiplier);
+      sets = Math.max(2, Math.min(sets, 6)); // Clamp between 2-6
+      repsMax += intensityAdjust.repsAdjust;
+      restSeconds = Math.max(30, restSeconds + intensityAdjust.restAdjust);
 
       return { ...ex, sets, repsMin, repsMax, restSeconds };
     });
@@ -346,6 +412,6 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
     splitType,
     days: adjustedDays,
     weeklySchedule: Object.keys(weeklySchedule).length > 0 ? weeklySchedule : undefined,
-    externalActivityNotes: [...fatigueAnalysis.recommendations, ...notes],
+    externalActivityNotes: [...fatigueAnalysis.recommendations, ...personalNotes, ...notes],
   };
 }
