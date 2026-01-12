@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, Flame } from 'lucide-react';
+import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, Flame, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -9,6 +9,7 @@ import { useExercises, useLogExercise, useCompleteWorkoutSession, useWorkoutPlan
 import { useMultipleExercisesLastPerformance } from '@/hooks/useExerciseHistory';
 import { usePersonalRecords, calculate1RM } from '@/hooks/usePersonalRecords';
 import { useProfile } from '@/hooks/useProfile';
+import { useRoutineDayProgressions } from '@/hooks/useProgressionSuggestion';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import PostWorkoutSummary from '@/components/workout/PostWorkoutSummary';
@@ -86,6 +87,7 @@ const ActiveWorkoutPage: React.FC = () => {
   const exerciseIds = useMemo(() => exercises.map(e => e.exerciseId), [exercises]);
   const { data: exerciseHistory } = useMultipleExercisesLastPerformance(exerciseIds);
   const { data: personalRecords } = usePersonalRecords();
+  const { data: progressions } = useRoutineDayProgressions(dayId);
 
   // Load exercises from routine when workout plan day is fetched
   useEffect(() => {
@@ -446,6 +448,19 @@ const ActiveWorkoutPage: React.FC = () => {
 
                 {exercise.isExpanded && (
                   <div className="px-4 pb-4 space-y-2">
+                    {/* Progression suggestion */}
+                    {progressions?.[exercise.exerciseId]?.shouldProgress && (
+                      <div className="flex items-center gap-2 text-xs bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg px-3 py-2 mb-2">
+                        <TrendingUp className="w-3.5 h-3.5" />
+                        <span className="font-medium">
+                          ¡Sube a {progressions[exercise.exerciseId].suggestedWeight}kg! 
+                        </span>
+                        <span className="text-green-600/70 dark:text-green-400/70">
+                          (+{progressions[exercise.exerciseId].progressionAmount}kg)
+                        </span>
+                      </div>
+                    )}
+
                     {/* Last performance */}
                     {exerciseHistory?.[exercise.exerciseId] && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 mb-2">
