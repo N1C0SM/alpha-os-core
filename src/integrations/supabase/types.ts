@@ -289,6 +289,39 @@ export type Database = {
         }
         Relationships: []
       }
+      food_preferences: {
+        Row: {
+          allergies: string | null
+          created_at: string | null
+          disliked_foods: string | null
+          id: string
+          liked_foods: string | null
+          preference: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          allergies?: string | null
+          created_at?: string | null
+          disliked_foods?: string | null
+          id?: string
+          liked_foods?: string | null
+          preference?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          allergies?: string | null
+          created_at?: string | null
+          disliked_foods?: string | null
+          id?: string
+          liked_foods?: string | null
+          preference?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       habit_logs: {
         Row: {
           completed: boolean | null
@@ -646,6 +679,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          available_equipment: string[] | null
           avatar_url: string | null
           body_fat_percentage: number | null
           created_at: string | null
@@ -660,15 +694,19 @@ export type Database = {
           height_cm: number | null
           id: string
           onboarding_completed: boolean | null
+          secondary_goals: string[] | null
           show_goals: boolean | null
           show_habits: boolean | null
           show_hydration: boolean | null
           show_schedule: boolean | null
           show_supplements: boolean | null
+          training_style: string | null
+          training_types: string[] | null
           updated_at: string | null
           weight_kg: number | null
         }
         Insert: {
+          available_equipment?: string[] | null
           avatar_url?: string | null
           body_fat_percentage?: number | null
           created_at?: string | null
@@ -683,15 +721,19 @@ export type Database = {
           height_cm?: number | null
           id: string
           onboarding_completed?: boolean | null
+          secondary_goals?: string[] | null
           show_goals?: boolean | null
           show_habits?: boolean | null
           show_hydration?: boolean | null
           show_schedule?: boolean | null
           show_supplements?: boolean | null
+          training_style?: string | null
+          training_types?: string[] | null
           updated_at?: string | null
           weight_kg?: number | null
         }
         Update: {
+          available_equipment?: string[] | null
           avatar_url?: string | null
           body_fat_percentage?: number | null
           created_at?: string | null
@@ -706,11 +748,14 @@ export type Database = {
           height_cm?: number | null
           id?: string
           onboarding_completed?: boolean | null
+          secondary_goals?: string[] | null
           show_goals?: boolean | null
           show_habits?: boolean | null
           show_hydration?: boolean | null
           show_schedule?: boolean | null
           show_supplements?: boolean | null
+          training_style?: string | null
+          training_types?: string[] | null
           updated_at?: string | null
           weight_kg?: number | null
         }
@@ -1206,9 +1251,11 @@ export type Database = {
         Row: {
           calories_burned: number | null
           completed_at: string | null
+          completion_status: string | null
           created_at: string | null
           date: string
           duration_minutes: number | null
+          feeling: string | null
           id: string
           notes: string | null
           rating: number | null
@@ -1219,9 +1266,11 @@ export type Database = {
         Insert: {
           calories_burned?: number | null
           completed_at?: string | null
+          completion_status?: string | null
           created_at?: string | null
           date?: string
           duration_minutes?: number | null
+          feeling?: string | null
           id?: string
           notes?: string | null
           rating?: number | null
@@ -1232,9 +1281,11 @@ export type Database = {
         Update: {
           calories_burned?: number | null
           completed_at?: string | null
+          completion_status?: string | null
           created_at?: string | null
           date?: string
           duration_minutes?: number | null
+          feeling?: string | null
           id?: string
           notes?: string | null
           rating?: number | null
