@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Droplets, Utensils, Pill, Moon, ExternalLink, Clock, Dumbbell, TrendingUp } from 'lucide-react';
+import { Droplets, Moon, Clock, Dumbbell, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { recoveryDecision } from '@/services/decision-engine/recovery-decision';
 import { cn } from '@/lib/utils';
 
 interface PostWorkoutSummaryProps {
@@ -22,31 +21,12 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
   durationMinutes,
   exerciseCount,
   totalSets,
-  fitnessGoal,
-  bodyWeightKg,
   onClose,
   onSaveFeedback,
-  newPRs = 0,
-  workoutName,
 }) => {
   const [feedbackStep, setFeedbackStep] = useState<'questions' | 'summary'>('questions');
   const [completed, setCompleted] = useState<boolean | null>(null);
   const [feeling, setFeeling] = useState<FeelingType | null>(null);
-
-  const recommendations = recoveryDecision({
-    workoutDurationMinutes: durationMinutes,
-    exerciseCount,
-    totalSets,
-    fitnessGoal,
-    bodyWeightKg,
-  });
-
-  const goalLabels: Record<string, string> = {
-    muscle_gain: 'Ganar músculo',
-    fat_loss: 'Perder grasa',
-    recomposition: 'Recomposición',
-    maintenance: 'Mantenimiento',
-  };
 
   const handleContinue = () => {
     if (completed !== null && feeling !== null) {
@@ -76,9 +56,9 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
           {/* Question 1: Completed? */}
           <div>
             <h3 className="font-semibold text-foreground mb-4">¿Completaste el entreno?</h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               {[
-                { value: true, label: 'Sí', emoji: '✅' },
+                { value: true, label: 'Sí, completo', emoji: '✅' },
                 { value: false, label: 'Parcial', emoji: '⚡' },
               ].map((option) => (
                 <button
@@ -137,7 +117,7 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
     );
   }
 
-  // Summary step (existing UI)
+  // Summary step - Simple recovery tips (no macros)
   return (
     <div className="min-h-screen bg-background px-4 py-6 safe-top safe-bottom">
       {/* Header */}
@@ -147,7 +127,7 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
         </div>
         <h1 className="text-2xl font-bold text-foreground mb-2">¡Entreno Completado!</h1>
         <p className="text-muted-foreground">
-          Recomendaciones personalizadas para tu recuperación
+          Buen trabajo, tu cuerpo te lo agradecerá
         </p>
       </div>
 
@@ -178,123 +158,42 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
         </div>
       </div>
 
-      {/* Hydration */}
+      {/* Hydration Reminder - Simple */}
       <div className="bg-card rounded-2xl p-4 border border-border mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-            <Droplets className="w-4 h-4 text-blue-400" />
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">
+            <Droplets className="w-6 h-6 text-blue-400" />
           </div>
-          <h2 className="font-semibold text-foreground">Hidratación</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-blue-400">
-              {(recommendations.hydration.duringWorkout / 1000).toFixed(1)}L
+          <div>
+            <h2 className="font-semibold text-foreground">Hidrátate</h2>
+            <p className="text-sm text-muted-foreground">
+              Bebe agua para reponer lo perdido durante el entreno
             </p>
-            <p className="text-xs text-muted-foreground">Durante entreno</p>
           </div>
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-blue-400">
-              {recommendations.hydration.postWorkout}ml
-            </p>
-            <p className="text-xs text-muted-foreground">Post-entreno</p>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          💧 {recommendations.hydration.tip}
-        </p>
-      </div>
-
-      {/* Nutrition */}
-      <div className="bg-card rounded-2xl p-4 border border-border mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-            <Utensils className="w-4 h-4 text-green-400" />
-          </div>
-          <h2 className="font-semibold text-foreground">Nutrición Post-Entreno</h2>
-          <span className="ml-auto text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-            {goalLabels[fitnessGoal]}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-green-400">
-              {recommendations.nutrition.proteinGrams}g
-            </p>
-            <p className="text-xs text-muted-foreground">Proteína</p>
-          </div>
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-amber-400">
-              {recommendations.nutrition.carbsGrams}g
-            </p>
-            <p className="text-xs text-muted-foreground">Carbohidratos</p>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground mb-2">
-          ⏰ {recommendations.nutrition.timing}
-        </p>
-        <p className="text-sm text-muted-foreground">
-          💡 {recommendations.nutrition.tip}
-        </p>
-      </div>
-
-      {/* Supplements */}
-      <div className="bg-card rounded-2xl p-4 border border-border mb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-purple-500/20 flex items-center justify-center">
-            <Pill className="w-4 h-4 text-purple-400" />
-          </div>
-          <h2 className="font-semibold text-foreground">Suplementos Recomendados</h2>
-        </div>
-        <div className="space-y-3">
-          {recommendations.supplements.map((supp, idx) => (
-            <div key={idx} className="bg-secondary/50 rounded-xl p-3">
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div>
-                  <p className="font-medium text-foreground">{supp.name}</p>
-                  <p className="text-sm text-primary font-semibold">{supp.dosage}</p>
-                </div>
-                <a
-                  href={supp.amazonUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FF9900]/20 text-[#FF9900] text-xs font-medium hover:bg-[#FF9900]/30 transition-colors flex-shrink-0"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Amazon
-                </a>
-              </div>
-              <p className="text-xs text-muted-foreground mb-1">⏰ {supp.timing}</p>
-              <p className="text-xs text-muted-foreground">{supp.reason}</p>
-            </div>
-          ))}
         </div>
       </div>
 
-      {/* Recovery */}
+      {/* Recovery - Simple */}
       <div className="bg-card rounded-2xl p-4 border border-border mb-6">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center">
-            <Moon className="w-4 h-4 text-indigo-400" />
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-indigo-500/20 flex items-center justify-center">
+            <Moon className="w-6 h-6 text-indigo-400" />
           </div>
-          <h2 className="font-semibold text-foreground">Recuperación</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-indigo-400">
-              {recommendations.recovery.muscleRecoveryDays}
+          <div>
+            <h2 className="font-semibold text-foreground">Descansa bien</h2>
+            <p className="text-sm text-muted-foreground">
+              El músculo crece cuando descansas. Duerme 7-8 horas esta noche.
             </p>
-            <p className="text-xs text-muted-foreground">días descanso músculos</p>
-          </div>
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-indigo-400">
-              {recommendations.recovery.sleepHours}h
-            </p>
-            <p className="text-xs text-muted-foreground">sueño recomendado</p>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          😴 {recommendations.recovery.tip}
+      </div>
+
+      {/* Motivational message based on feeling */}
+      <div className="bg-primary/10 rounded-2xl p-4 border border-primary/20 mb-6">
+        <p className="text-center text-foreground">
+          {feeling === 'good' && '💪 ¡Genial! Sigue así, la consistencia es la clave.'}
+          {feeling === 'normal' && '👍 Buen trabajo. No todos los días son perfectos, pero viniste.'}
+          {feeling === 'bad' && '🙏 Lo importante es que lo hiciste. Mañana será mejor.'}
         </p>
       </div>
 
