@@ -435,6 +435,33 @@ export type Database = {
         }
         Relationships: []
       }
+      manual_subscriptions: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          tier: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          tier?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          tier?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       meal_logs: {
         Row: {
           completed: boolean | null
@@ -1056,6 +1083,27 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_schedules: {
         Row: {
           breakfast_time: string | null
@@ -1310,8 +1358,16 @@ export type Database = {
     Functions: {
       get_followers_count: { Args: { target_user_id: string }; Returns: number }
       get_following_count: { Args: { target_user_id: string }; Returns: number }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "user"
       exercise_category: "compound" | "isolation" | "cardio" | "stretching"
       experience_level: "beginner" | "intermediate" | "advanced"
       fitness_goal: "muscle_gain" | "fat_loss" | "recomposition" | "maintenance"
@@ -1476,6 +1532,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "user"],
       exercise_category: ["compound", "isolation", "cardio", "stretching"],
       experience_level: ["beginner", "intermediate", "advanced"],
       fitness_goal: ["muscle_gain", "fat_loss", "recomposition", "maintenance"],
