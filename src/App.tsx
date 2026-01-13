@@ -25,6 +25,7 @@ import SchedulePage from "./pages/SchedulePage";
 import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
 import PremiumPage from "./pages/PremiumPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
                 <Route path="/perfil/config" element={<SettingsPage />} />
                 <Route path="/instalar" element={<InstallPage />} />
                 <Route path="/premium" element={<PremiumPage />} />
+                <Route path="/admin" element={<AdminPage />} />
               </Route>
               
               {/* Catch-all */}
