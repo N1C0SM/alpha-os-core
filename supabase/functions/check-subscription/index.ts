@@ -60,8 +60,18 @@ serve(async (req) => {
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      const productId = subscription.items.data[0].price.product;
+      
+      // Safely parse subscription end date
+      if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
+        try {
+          subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+        } catch (e) {
+          console.error('Failed to parse subscription end date:', e);
+          subscriptionEnd = null;
+        }
+      }
+      
+      const productId = subscription.items.data[0]?.price?.product;
       
       if (productId === PREMIUM_PRODUCT_ID) {
         tier = "premium";
