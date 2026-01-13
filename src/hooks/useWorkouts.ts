@@ -82,7 +82,13 @@ export const useCreateWorkoutDay = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (day: { workout_plan_id: string; name: string; day_number: number; focus?: ('chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'forearms' | 'core' | 'quadriceps' | 'hamstrings' | 'glutes' | 'calves' | 'full_body')[] }) => {
+    mutationFn: async (day: { 
+      workout_plan_id: string; 
+      name: string; 
+      day_number: number; 
+      focus?: ('chest' | 'back' | 'shoulders' | 'biceps' | 'triceps' | 'forearms' | 'core' | 'quadriceps' | 'hamstrings' | 'glutes' | 'calves' | 'full_body')[];
+      assigned_weekdays?: string[];
+    }) => {
       const { data, error } = await supabase
         .from('workout_plan_days')
         .insert([{
@@ -90,6 +96,7 @@ export const useCreateWorkoutDay = () => {
           name: day.name,
           day_number: day.day_number,
           focus: day.focus,
+          assigned_weekdays: day.assigned_weekdays,
         }])
         .select()
         .single();
@@ -113,6 +120,7 @@ export const useAddExerciseToPlan = () => {
       sets?: number; 
       reps_min?: number; 
       reps_max?: number;
+      rest_seconds?: number;
       order_index?: number;
     }) => {
       const { data, error } = await supabase
@@ -123,6 +131,7 @@ export const useAddExerciseToPlan = () => {
           sets: exercise.sets || 3,
           reps_min: exercise.reps_min || 8,
           reps_max: exercise.reps_max || 12,
+          rest_seconds: exercise.rest_seconds || 90,
           order_index: exercise.order_index || 0,
         })
         .select()

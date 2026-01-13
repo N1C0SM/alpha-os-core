@@ -155,6 +155,14 @@ const TrainingPage: React.FC = () => {
         ? schedule.external_activities as any
         : {};
       
+      // Calculate age from date_of_birth
+      let age: number | undefined;
+      if (profile.date_of_birth) {
+        const dob = new Date(profile.date_of_birth);
+        const today = new Date();
+        age = today.getFullYear() - dob.getFullYear();
+      }
+      
       const recommendation = routineDecision({
         fitnessGoal: (profile.fitness_goal as 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance') || 'muscle_gain',
         experienceLevel: (profile.experience_level as 'beginner' | 'intermediate' | 'advanced') || 'intermediate',
@@ -163,6 +171,8 @@ const TrainingPage: React.FC = () => {
         preferredGymDays: schedule?.preferred_workout_days || [],
         weightKg: profile.weight_kg || undefined,
         heightCm: profile.height_cm || undefined,
+        gender: profile.gender || undefined,
+        age,
       });
 
       // Create the plan
@@ -173,19 +183,26 @@ const TrainingPage: React.FC = () => {
         days_per_week: daysPerWeek,
       });
 
-      // Create days with exercises
+      // Create days with exercises and assigned weekdays
       for (let i = 0; i < recommendation.days.length; i++) {
         const dayData = recommendation.days[i];
+        
+        // Create day with assigned weekday
         const day = await createDay.mutateAsync({
           workout_plan_id: plan.id,
           name: dayData.name,
           day_number: i + 1,
           focus: dayData.focus as any[],
+          assigned_weekdays: dayData.assignedDay ? [dayData.assignedDay] : [],
         });
 
         // Find matching exercises from DB and add them
         for (const ex of dayData.exercises) {
+          // Better matching: try exact match first, then partial
           const matchingExercise = exercises?.find(
+            e => e.name_es?.toLowerCase() === ex.name.toLowerCase() ||
+                 e.name?.toLowerCase() === ex.name.toLowerCase()
+          ) || exercises?.find(
             e => e.name_es?.toLowerCase().includes(ex.name.toLowerCase().split(' ')[0]) ||
                  e.name?.toLowerCase().includes(ex.name.toLowerCase().split(' ')[0])
           );
@@ -197,6 +214,7 @@ const TrainingPage: React.FC = () => {
               sets: ex.sets,
               reps_min: ex.repsMin,
               reps_max: ex.repsMax,
+              rest_seconds: ex.restSeconds,
             });
           }
         }
@@ -205,15 +223,15 @@ const TrainingPage: React.FC = () => {
       setIsNewRoutineOpen(false);
       setViewingRoutine(plan.id);
       
-      // Show notes about external activities if any
-      const activityNotes = recommendation.externalActivityNotes || [];
-      if (activityNotes.length > 0) {
+      // Show comprehensive feedback
+      const allNotes = [...(recommendation.externalActivityNotes || []), ...(recommendation.personalNotes || [])];
+      if (allNotes.length > 0) {
         toast({ 
-          title: '¡Rutina personalizada creada!', 
-          description: `${recommendation.description}\n\n${activityNotes.slice(0, 2).join('\n')}`,
+          title: '¡Rutina 100% personalizada creada!', 
+          description: `${recommendation.description}\n\n${allNotes.slice(0, 2).join('\n')}`,
         });
       } else {
-        toast({ title: '¡Rutina personalizada creada!', description: recommendation.description });
+        toast({ title: '¡Rutina 100% personalizada creada!', description: recommendation.description });
       }
     } catch (error) {
       console.error('Error generating routine:', error);
