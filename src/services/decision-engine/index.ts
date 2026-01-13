@@ -1,10 +1,7 @@
-// AlphaSupps OS - Decision Engine
-// This service orchestrates all decision-making for the app
-// Designed to be extensible - logic can be enhanced without structural changes
+// AlphaSupps OS - Decision Engine (MVP Version)
+// Simplified to match MVP requirements - no calorie/macro tracking
 
 import { trainingDecision, type TrainingDecisionInput, type TrainingDecision } from './training-decision';
-import { nutritionDecision, type NutritionDecisionInput, type NutritionDecision } from './nutrition-decision';
-import { supplementDecision, type SupplementDecisionInput, type SupplementDecision } from './supplement-decision';
 import { prioritiesDecision, type PrioritiesDecisionInput, type DailyPriority } from './priorities-decision';
 
 export interface DailyPlanInput {
@@ -35,16 +32,14 @@ export interface DailyPlanInput {
 
 export interface DailyPlan {
   training: TrainingDecision;
-  nutrition: NutritionDecision;
-  supplements: SupplementDecision;
   priorities: DailyPriority[];
   computedEnergy: number;
   shouldRest: boolean;
 }
 
 /**
- * Main decision engine - generates the complete daily plan
- * All decisions are made based on user state and preferences
+ * Main decision engine - generates the complete daily plan (MVP version)
+ * Simplified: no calorie/macro/supplement tracking
  */
 export function generateDailyPlan(input: DailyPlanInput): DailyPlan {
   // Step 1: Calculate overall energy/readiness
@@ -58,29 +53,12 @@ export function generateDailyPlan(input: DailyPlanInput): DailyPlan {
     sorenessLevel: input.sorenessLevel,
     isScheduledWorkoutDay: input.isWorkoutDay,
     experienceLevel: input.experienceLevel,
-    daysSinceLastWorkout: 1, // Would come from DB in real implementation
+    daysSinceLastWorkout: 1,
     consecutiveWorkoutDays: 0,
   };
   const training = trainingDecision(trainingInput);
   
-  // Step 3: Nutrition decision
-  const nutritionInput: NutritionDecisionInput = {
-    weightKg: input.weightKg,
-    fitnessGoal: input.fitnessGoal,
-    isWorkoutDay: training.shouldTrain,
-    activityLevel: training.shouldTrain ? 'high' : 'moderate',
-  };
-  const nutrition = nutritionDecision(nutritionInput);
-  
-  // Step 4: Supplement decision
-  const supplementInput: SupplementDecisionInput = {
-    fitnessGoal: input.fitnessGoal,
-    isWorkoutDay: training.shouldTrain,
-    sleepQuality: input.sleepQuality,
-  };
-  const supplements = supplementDecision(supplementInput);
-  
-  // Step 5: Generate priorities
+  // Step 3: Generate priorities
   const prioritiesInput: PrioritiesDecisionInput = {
     isWorkoutDay: training.shouldTrain,
     hydrationProgress: input.hydrationProgress,
@@ -95,8 +73,6 @@ export function generateDailyPlan(input: DailyPlanInput): DailyPlan {
   
   return {
     training,
-    nutrition,
-    supplements,
     priorities,
     computedEnergy,
     shouldRest: !training.shouldTrain,
@@ -105,19 +81,16 @@ export function generateDailyPlan(input: DailyPlanInput): DailyPlan {
 
 /**
  * Calculate overall energy/readiness score (1-10)
- * This is a simplified algorithm that can be enhanced later
  */
 function calculateEnergy(input: DailyPlanInput): number {
   const sleepScore = Math.min(input.sleepHours / 8, 1) * input.sleepQuality;
   const stressImpact = (10 - input.stressLevel) / 10;
   const sorenessImpact = (10 - input.sorenessLevel) / 10;
   
-  // Weighted average
   const rawScore = (sleepScore * 0.4) + (stressImpact * 0.3) + (sorenessImpact * 0.3);
   
-  // Scale to 1-10
   return Math.round(rawScore * 10);
 }
 
 // Re-export types for external use
-export type { TrainingDecision, NutritionDecision, SupplementDecision, DailyPriority };
+export type { TrainingDecision, DailyPriority };
