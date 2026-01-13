@@ -25,8 +25,6 @@ import { routineDecision } from '@/services/decision-engine/routine-decision';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import WeeklyVolumeCard from '@/components/workout/WeeklyVolumeCard';
-import ProgressInsights from '@/components/workout/ProgressInsights';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 
 const WEEKDAYS = [
@@ -760,11 +758,6 @@ const TrainingPage: React.FC = () => {
 
       {activeTab === 'history' && (
         <>
-          {/* Weekly Volume Card */}
-          <div className="mb-6">
-            <WeeklyVolumeCard />
-          </div>
-
           {sessions && sessions.length > 0 ? (
             <div className="space-y-3">
               {sessions.map((session) => (

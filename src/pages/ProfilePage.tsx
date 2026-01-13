@@ -1,32 +1,26 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
-import { User, Target, Calendar, Settings, LogOut, ChevronRight, Download, Users } from 'lucide-react';
+import { User, Target, Calendar, Settings, LogOut, ChevronRight, Download, Crown, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
-import ProgressPhotosSection from '@/components/profile/ProgressPhotosSection';
-import { useFollowersCount, useFollowingCount, useFollowersList, useFollowingList } from '@/hooks/usePublicProfile';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
   const { isInstalled } = usePWAInstall();
-  const [showFollowers, setShowFollowers] = useState(false);
-  const [showFollowing, setShowFollowing] = useState(false);
-
-  const { data: followersCount } = useFollowersCount(user?.id || null);
-  const { data: followingCount } = useFollowingCount(user?.id || null);
-  const { data: followers } = useFollowersList(user?.id || null);
-  const { data: following } = useFollowingList(user?.id || null);
+  const { isPremium } = useSubscription();
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth');
+  };
+
+  const handleRedoOnboarding = () => {
+    navigate('/onboarding?redo=true');
   };
 
   const goalLabels = {
@@ -47,15 +41,12 @@ const ProfilePage: React.FC = () => {
     <div className="px-4 py-6 safe-top">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(`/usuario/${user?.id}`)}
-          className="text-muted-foreground"
-        >
-          <Users className="w-4 h-4 mr-2" />
-          Ver perfil público
-        </Button>
+        {isPremium && (
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+            <Crown className="w-4 h-4 text-yellow-500" />
+            <span className="text-xs font-semibold text-yellow-500">Premium</span>
+          </div>
+        )}
       </div>
 
       {/* Profile Card */}
@@ -68,18 +59,6 @@ const ProfilePage: React.FC = () => {
             <h2 className="text-xl font-bold text-foreground">{profile?.full_name || 'Usuario'}</h2>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
           </div>
-        </div>
-
-        {/* Followers/Following Stats */}
-        <div className="flex gap-6 mt-4 pt-4 border-t border-border">
-          <button onClick={() => setShowFollowers(true)} className="text-center">
-            <p className="text-lg font-bold text-foreground">{followersCount || 0}</p>
-            <p className="text-xs text-muted-foreground">Seguidores</p>
-          </button>
-          <button onClick={() => setShowFollowing(true)} className="text-center">
-            <p className="text-lg font-bold text-foreground">{followingCount || 0}</p>
-            <p className="text-xs text-muted-foreground">Siguiendo</p>
-          </button>
         </div>
 
         <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
@@ -100,10 +79,20 @@ const ProfilePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Progress Photos */}
-      <div className="mb-6">
-        <ProgressPhotosSection />
-      </div>
+      {/* Premium Upgrade */}
+      {!isPremium && (
+        <button
+          onClick={() => navigate('/premium')}
+          className="w-full bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-xl p-4 border border-yellow-500/30 flex items-center gap-4 hover:from-yellow-500/20 hover:to-orange-500/20 transition-colors mb-6"
+        >
+          <Crown className="w-6 h-6 text-yellow-500" />
+          <div className="flex-1 text-left">
+            <span className="font-semibold text-foreground block">Hazte Premium</span>
+            <span className="text-xs text-muted-foreground">Rutinas ilimitadas, historial completo y más</span>
+          </div>
+          <ChevronRight className="w-5 h-5 text-yellow-500" />
+        </button>
+      )}
 
       {/* Menu */}
       <div className="space-y-2 mb-6">
@@ -119,6 +108,16 @@ const ProfilePage: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* Redo Onboarding */}
+      <button
+        onClick={handleRedoOnboarding}
+        className="w-full bg-secondary/50 rounded-xl p-4 border border-border flex items-center gap-4 hover:bg-secondary transition-colors mb-4"
+      >
+        <RotateCcw className="w-5 h-5 text-muted-foreground" />
+        <span className="flex-1 text-left font-medium text-foreground">Rehacer onboarding</span>
+        <ChevronRight className="w-5 h-5 text-muted-foreground" />
+      </button>
 
       {/* Install App Button */}
       {!isInstalled && (
@@ -141,76 +140,6 @@ const ProfilePage: React.FC = () => {
         <LogOut className="w-5 h-5 mr-2" />
         Cerrar sesión
       </Button>
-
-      {/* Followers Dialog */}
-      <Dialog open={showFollowers} onOpenChange={setShowFollowers}>
-        <DialogContent className="max-w-md bg-card border-border">
-          <DialogHeader>
-            <DialogTitle>Seguidores</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            {followers?.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">Sin seguidores aún</p>
-            ) : (
-              <div className="space-y-3">
-                {followers?.map((follower) => (
-                  <button
-                    key={follower.id}
-                    onClick={() => {
-                      setShowFollowers(false);
-                      navigate(`/usuario/${follower.id}`);
-                    }}
-                    className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-secondary/50 transition-colors"
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={follower.avatar_url || ''} />
-                      <AvatarFallback className="bg-primary/20 text-primary">
-                        {follower.full_name?.[0] || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium text-foreground">{follower.full_name || 'Usuario'}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      {/* Following Dialog */}
-      <Dialog open={showFollowing} onOpenChange={setShowFollowing}>
-        <DialogContent className="max-w-md bg-card border-border">
-          <DialogHeader>
-            <DialogTitle>Siguiendo</DialogTitle>
-          </DialogHeader>
-          <ScrollArea className="max-h-[60vh]">
-            {following?.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">No sigues a nadie</p>
-            ) : (
-              <div className="space-y-3">
-                {following?.map((followed) => (
-                  <button
-                    key={followed.id}
-                    onClick={() => {
-                      setShowFollowing(false);
-                      navigate(`/usuario/${followed.id}`);
-                    }}
-                    className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-secondary/50 transition-colors"
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={followed.avatar_url || ''} />
-                      <AvatarFallback className="bg-primary/20 text-primary">
-                        {followed.full_name?.[0] || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="font-medium text-foreground">{followed.full_name || 'Usuario'}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

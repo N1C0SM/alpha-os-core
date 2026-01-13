@@ -1,23 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, Flame, TrendingUp } from 'lucide-react';
+import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, TrendingUp, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useExercises, useLogExercise, useCompleteWorkoutSession, useWorkoutPlanDay } from '@/hooks/useWorkouts';
 import { useMultipleExercisesLastPerformance } from '@/hooks/useExerciseHistory';
-import { usePersonalRecords, calculate1RM } from '@/hooks/usePersonalRecords';
 import { useProfile } from '@/hooks/useProfile';
 import { useRoutineDayProgressions } from '@/hooks/useProgressionSuggestion';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import PostWorkoutSummary from '@/components/workout/PostWorkoutSummary';
 import RestTimer from '@/components/workout/RestTimer';
-import WarmupGenerator from '@/components/workout/WarmupGenerator';
-import PlateCalculator from '@/components/workout/PlateCalculator';
-import OneRMCalculator from '@/components/workout/OneRMCalculator';
-import PRCelebration from '@/components/workout/PRCelebration';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -67,13 +62,6 @@ const ActiveWorkoutPage: React.FC = () => {
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [showPostWorkout, setShowPostWorkout] = useState(false);
   const [workoutDuration, setWorkoutDuration] = useState(0);
-  const [prCelebration, setPrCelebration] = useState<{
-    exerciseName: string;
-    weight: number;
-    reps: number;
-    estimated1RM: number;
-    previousBest?: number;
-  } | null>(null);
   const [hasLoadedRoutine, setHasLoadedRoutine] = useState(false);
 
   const { data: allExercises } = useExercises();
@@ -86,7 +74,6 @@ const ActiveWorkoutPage: React.FC = () => {
   // Get exercise IDs for history lookup
   const exerciseIds = useMemo(() => exercises.map(e => e.exerciseId), [exercises]);
   const { data: exerciseHistory } = useMultipleExercisesLastPerformance(exerciseIds);
-  const { data: personalRecords } = usePersonalRecords();
   const { data: progressions } = useRoutineDayProgressions(dayId);
 
   // Load exercises from routine when workout plan day is fetched
@@ -233,28 +220,6 @@ const ActiveWorkoutPage: React.FC = () => {
   };
 
   const handleToggleSetComplete = (exerciseIdx: number, setIdx: number) => {
-    const exercise = exercises[exerciseIdx];
-    const set = exercise.sets[setIdx];
-    
-    // If completing the set (not uncompleting), check for PR
-    if (!set.completed && set.weight && set.reps) {
-      const weight = parseFloat(set.weight);
-      const reps = parseInt(set.reps);
-      const new1RM = calculate1RM(weight, reps);
-      const currentPR = personalRecords?.[exercise.exerciseId];
-      
-      if (!currentPR || new1RM > currentPR.estimated1RM) {
-        // It's a PR! Show celebration
-        setPrCelebration({
-          exerciseName: exercise.name,
-          weight,
-          reps,
-          estimated1RM: new1RM,
-          previousBest: currentPR?.estimated1RM,
-        });
-      }
-    }
-
     setExercises(prev => {
       const updated = [...prev];
       updated[exerciseIdx].sets[setIdx].completed = !updated[exerciseIdx].sets[setIdx].completed;
@@ -338,18 +303,6 @@ const ActiveWorkoutPage: React.FC = () => {
 
   return (
     <>
-      {/* PR Celebration Modal */}
-      {prCelebration && (
-        <PRCelebration
-          exerciseName={prCelebration.exerciseName}
-          weight={prCelebration.weight}
-          reps={prCelebration.reps}
-          estimated1RM={prCelebration.estimated1RM}
-          previousBest={prCelebration.previousBest}
-          onClose={() => setPrCelebration(null)}
-        />
-      )}
-      
       <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3 safe-top">
@@ -397,17 +350,10 @@ const ActiveWorkoutPage: React.FC = () => {
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Dumbbell className="w-12 h-12 text-muted-foreground/50 mb-4" />
             <p className="text-muted-foreground mb-4">No hay ejercicios aún</p>
-            <Button onClick={() => setIsAddExerciseOpen(true)} className="bg-primary text-primary-foreground mb-6">
+            <Button onClick={() => setIsAddExerciseOpen(true)} className="bg-primary text-primary-foreground">
               <Plus className="w-4 h-4 mr-2" />
               Añadir ejercicio
             </Button>
-            
-            {/* Tools */}
-            <div className="w-full max-w-sm space-y-3">
-              <WarmupGenerator />
-              <OneRMCalculator />
-              <PlateCalculator />
-            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -571,16 +517,6 @@ const ActiveWorkoutPage: React.FC = () => {
                 )}
               </div>
             ))}
-
-            {/* Tools section when exercises exist */}
-            <div className="pt-4 border-t border-border mt-4">
-              <p className="text-xs text-muted-foreground mb-3">Herramientas</p>
-              <div className="flex flex-wrap gap-2">
-                <WarmupGenerator />
-                <OneRMCalculator />
-                <PlateCalculator />
-              </div>
-            </div>
           </div>
         )}
       </div>

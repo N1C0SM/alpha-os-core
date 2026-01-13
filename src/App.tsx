@@ -24,8 +24,7 @@ import GoalsPage from "./pages/GoalsPage";
 import SchedulePage from "./pages/SchedulePage";
 import SettingsPage from "./pages/SettingsPage";
 import InstallPage from "./pages/InstallPage";
-import CommunityPage from "./pages/CommunityPage";
-import PublicProfilePage from "./pages/PublicProfilePage";
+import PremiumPage from "./pages/PremiumPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,14 +62,13 @@ const App = () => (
                 <Route path="/entreno/activo" element={<ActiveWorkoutPage />} />
                 <Route path="/nutricion" element={<NutritionPage />} />
                 <Route path="/habitos" element={<HabitsPage />} />
-                <Route path="/comunidad" element={<CommunityPage />} />
                 <Route path="/perfil" element={<ProfilePage />} />
                 <Route path="/perfil/datos" element={<PersonalDataPage />} />
                 <Route path="/perfil/objetivos" element={<GoalsPage />} />
                 <Route path="/perfil/horarios" element={<SchedulePage />} />
                 <Route path="/perfil/config" element={<SettingsPage />} />
                 <Route path="/instalar" element={<InstallPage />} />
-                <Route path="/usuario/:userId" element={<PublicProfilePage />} />
+                <Route path="/premium" element={<PremiumPage />} />
               </Route>
               
               {/* Catch-all */}

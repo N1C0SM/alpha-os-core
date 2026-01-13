@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Droplets, Utensils, Pill, Moon, ExternalLink, Clock, Dumbbell, TrendingUp, Share2 } from 'lucide-react';
+import { Droplets, Utensils, Pill, Moon, ExternalLink, Clock, Dumbbell, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { recoveryDecision } from '@/services/decision-engine/recovery-decision';
-import ShareWorkoutModal from './ShareWorkoutModal';
 import { cn } from '@/lib/utils';
 
 interface PostWorkoutSummaryProps {
@@ -30,7 +29,6 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
   newPRs = 0,
   workoutName,
 }) => {
-  const [showShare, setShowShare] = useState(false);
   const [feedbackStep, setFeedbackStep] = useState<'questions' | 'summary'>('questions');
   const [completed, setCompleted] = useState<boolean | null>(null);
   const [feeling, setFeeling] = useState<FeelingType | null>(null);
@@ -300,34 +298,13 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
         </p>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex gap-3">
-        <Button 
-          variant="outline"
-          onClick={() => setShowShare(true)}
-          className="flex-1 h-14 text-base font-semibold"
-        >
-          <Share2 className="w-5 h-5 mr-2" />
-          Compartir
-        </Button>
-        <Button 
-          onClick={handleFinish}
-          className="flex-1 h-14 bg-primary text-primary-foreground text-base font-semibold"
-        >
-          ¡Entendido!
-        </Button>
-      </div>
-
-      {/* Share Modal */}
-      <ShareWorkoutModal
-        isOpen={showShare}
-        onClose={() => setShowShare(false)}
-        durationMinutes={durationMinutes}
-        exerciseCount={exerciseCount}
-        totalSets={totalSets}
-        newPRs={newPRs}
-        workoutName={workoutName}
-      />
+      {/* Action button */}
+      <Button 
+        onClick={handleFinish}
+        className="w-full h-14 bg-primary text-primary-foreground text-base font-semibold"
+      >
+        ¡Entendido!
+      </Button>
     </div>
   );
 };
