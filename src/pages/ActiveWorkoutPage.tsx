@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, TrendingUp, Flame } from 'lucide-react';
+import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, TrendingUp, Flame, ArrowUp, RefreshCw, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -13,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import PostWorkoutSummary from '@/components/workout/PostWorkoutSummary';
 import RestTimer from '@/components/workout/RestTimer';
+import { useSubscription } from '@/contexts/SubscriptionContext';
+import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -63,6 +65,9 @@ const ActiveWorkoutPage: React.FC = () => {
   const [showPostWorkout, setShowPostWorkout] = useState(false);
   const [workoutDuration, setWorkoutDuration] = useState(0);
   const [hasLoadedRoutine, setHasLoadedRoutine] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  const { isPremium } = useSubscription();
 
   const { data: allExercises } = useExercises();
   const { data: workoutPlanDay } = useWorkoutPlanDay(dayId);
@@ -237,6 +242,93 @@ const ActiveWorkoutPage: React.FC = () => {
 
   const handleRemoveExercise = (exerciseIdx: number) => {
     setExercises(prev => prev.filter((_, i) => i !== exerciseIdx));
+  };
+
+  // Premium feature: Increase weight
+  const handleEasyWeight = (exerciseIdx: number) => {
+    if (!isPremium) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    setExercises(prev => {
+      const updated = [...prev];
+      const exercise = updated[exerciseIdx];
+      
+      // Determine increment based on muscle group (upper body +2.5kg, lower +5kg)
+      const exerciseInfo = allExercises?.find(e => e.id === exercise.exerciseId);
+      const lowerBodyMuscles = ['quadriceps', 'hamstrings', 'glutes', 'calves'];
+      const increment = lowerBodyMuscles.includes(exerciseInfo?.primary_muscle || '') ? 5 : 2.5;
+      
+      // Increase weight for all non-completed sets
+      exercise.sets = exercise.sets.map(set => {
+        if (!set.completed && !set.isWarmup) {
+          const currentWeight = parseFloat(set.weight) || 0;
+          return { ...set, weight: (currentWeight + increment).toString() };
+        }
+        return set;
+      });
+      
+      return updated;
+    });
+    
+    toast({
+      title: '💪 Peso aumentado',
+      description: 'Sigue así, campeón!',
+    });
+  };
+
+  // Premium feature: Swap exercise for equivalent
+  const handleMachineOccupied = (exerciseIdx: number) => {
+    if (!isPremium) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    
+    const currentExercise = exercises[exerciseIdx];
+    const exerciseInfo = allExercises?.find(e => e.id === currentExercise.exerciseId);
+    
+    if (!exerciseInfo || !allExercises) {
+      toast({ title: 'No hay alternativas disponibles', variant: 'destructive' });
+      return;
+    }
+    
+    // Find alternative exercise with same primary muscle
+    const alternatives = allExercises.filter(e => 
+      e.primary_muscle === exerciseInfo.primary_muscle && 
+      e.id !== currentExercise.exerciseId &&
+      !exercises.some(ex => ex.exerciseId === e.id)
+    );
+    
+    if (alternatives.length === 0) {
+      toast({ title: 'No hay alternativas disponibles', variant: 'destructive' });
+      return;
+    }
+    
+    // Pick random alternative
+    const alternative = alternatives[Math.floor(Math.random() * alternatives.length)];
+    
+    setExercises(prev => {
+      const updated = [...prev];
+      updated[exerciseIdx] = {
+        ...updated[exerciseIdx],
+        exerciseId: alternative.id,
+        name: alternative.name_es || alternative.name,
+        // Keep sets structure but clear weights/reps
+        sets: updated[exerciseIdx].sets.map(set => ({
+          ...set,
+          weight: '',
+          reps: '',
+          completed: false,
+        })),
+      };
+      return updated;
+    });
+    
+    toast({
+      title: '🔄 Ejercicio cambiado',
+      description: `Ahora: ${alternative.name_es || alternative.name}`,
+    });
   };
 
   const handleFinishWorkout = async () => {
@@ -491,6 +583,40 @@ const ActiveWorkoutPage: React.FC = () => {
                       );
                     })}
 
+                    {/* Premium action buttons */}
+                    <div className="flex gap-2 pt-2 border-t border-border/50 mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "flex-1 text-xs",
+                          isPremium 
+                            ? "border-green-500/30 text-green-600 hover:bg-green-500/10" 
+                            : "border-yellow-500/30 text-yellow-600"
+                        )}
+                        onClick={() => handleEasyWeight(exerciseIdx)}
+                      >
+                        {!isPremium && <Crown className="w-3 h-3 mr-1" />}
+                        <ArrowUp className="w-3 h-3 mr-1" />
+                        Peso fácil
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "flex-1 text-xs",
+                          isPremium 
+                            ? "border-blue-500/30 text-blue-600 hover:bg-blue-500/10" 
+                            : "border-yellow-500/30 text-yellow-600"
+                        )}
+                        onClick={() => handleMachineOccupied(exerciseIdx)}
+                      >
+                        {!isPremium && <Crown className="w-3 h-3 mr-1" />}
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Máquina ocupada
+                      </Button>
+                    </div>
+
                     {/* Add/Remove set buttons */}
                     <div className="flex gap-2 pt-2">
                       <Button
@@ -630,6 +756,13 @@ const ActiveWorkoutPage: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal 
+        open={showUpgradeModal} 
+        onOpenChange={setShowUpgradeModal}
+        trigger="general"
+      />
       </div>
     </>
   );
