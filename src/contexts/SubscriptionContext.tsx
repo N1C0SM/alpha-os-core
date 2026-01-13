@@ -73,7 +73,18 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (error) throw error;
 
       if (data?.url) {
-        window.open(data.url, '_blank');
+        // Open checkout and poll for subscription status after
+        const checkoutWindow = window.open(data.url, '_blank');
+        
+        // Start polling for subscription changes after checkout opens
+        const pollInterval = setInterval(async () => {
+          await checkSubscription();
+        }, 3000); // Check every 3 seconds
+        
+        // Stop polling after 5 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval);
+        }, 300000);
       }
     } catch (error) {
       console.error('Error opening checkout:', error);

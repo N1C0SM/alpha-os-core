@@ -1,7 +1,8 @@
 import React from 'react';
 import { useProfile, useUserPreferences, useUserSchedule } from '@/hooks/useProfile';
 import { generateDailyPlan } from '@/services/decision-engine';
-import { Battery, Dumbbell, Utensils, Droplets, Pill, Moon, Star, Loader2, Check, ChevronRight, Zap, Target, TrendingUp } from 'lucide-react';
+import { getHydrationRecommendation } from '@/services/decision-engine/habit-recommendations';
+import { Dumbbell, Utensils, Droplets, Pill, Loader2, Check, ChevronRight, Play, Moon, Info, Zap } from 'lucide-react';
 import { useSupplementRecommendations, useSupplementLogs } from '@/hooks/useSupplements';
 import { useWorkoutPlans } from '@/hooks/useWorkouts';
 import { format } from 'date-fns';
@@ -9,6 +10,7 @@ import { es } from 'date-fns/locale';
 import { Progress } from '@/components/ui/progress';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 const TodayPage: React.FC = () => {
   const navigate = useNavigate();
@@ -48,6 +50,14 @@ const TodayPage: React.FC = () => {
   const isWorkoutDay = todayWorkoutDay ? true : preferredDays.includes(todayDayName);
   
   const workoutName = todayWorkoutDay?.name || (isWorkoutDay ? 'Entrenamiento' : 'Día de descanso');
+  const exerciseCount = todayWorkoutDay?.workout_plan_exercises?.length || 0;
+
+  // Get personalized hydration
+  const hydration = getHydrationRecommendation(
+    profile?.weight_kg || 75,
+    profile?.height_cm || 175,
+    profile?.fitness_goal || 'muscle_gain'
+  );
 
   // Generate daily plan based on user data
   const plan = generateDailyPlan({
@@ -69,9 +79,6 @@ const TodayPage: React.FC = () => {
     totalSupplements: 4,
   });
 
-  const energyColor = plan.computedEnergy >= 7 ? 'text-success' : plan.computedEnergy >= 4 ? 'text-warning' : 'text-destructive';
-  const energyBgColor = plan.computedEnergy >= 7 ? 'bg-success/20' : plan.computedEnergy >= 4 ? 'bg-warning/20' : 'bg-destructive/20';
-
   const firstName = profile?.full_name?.split(' ')[0] || 'Atleta';
   const greeting = getGreeting();
 
@@ -84,133 +91,138 @@ const TodayPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Header with gradient */}
-      <div className="relative overflow-hidden">
-        {/* Background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent pointer-events-none" />
-        
-        <div className="px-5 pt-12 pb-6 relative">
-          <p className="text-muted-foreground text-sm capitalize">
-            {format(new Date(), "EEEE, d 'de' MMMM", { locale: es })}
-          </p>
-          <h1 className="text-3xl font-bold text-foreground mt-1">
-            {greeting}, <span className="text-primary">{firstName}</span>
-          </h1>
-        </div>
+      {/* Compact Header */}
+      <div className="px-5 pt-10 pb-4">
+        <p className="text-muted-foreground text-xs uppercase tracking-wide">
+          {format(new Date(), "EEEE, d MMM", { locale: es })}
+        </p>
+        <h1 className="text-2xl font-bold text-foreground mt-0.5">
+          {greeting}, <span className="text-primary">{firstName}</span>
+        </h1>
       </div>
 
       <div className="px-5 space-y-4">
-        {/* Energy Card - Hero style */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-card via-card to-secondary/30 rounded-3xl p-6 border border-border/50 shadow-lg">
-          {/* Decorative glow */}
-          <div className={cn("absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl opacity-40", energyBgColor)} />
-          
-          <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className={cn("p-4 rounded-2xl", energyBgColor)}>
-                <Battery className={cn("w-7 h-7", energyColor)} />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground font-medium">Nivel de energía</p>
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className={cn("text-4xl font-bold tracking-tight", energyColor)}>
-                    {plan.computedEnergy}
-                  </span>
-                  <span className="text-lg text-muted-foreground">/10</span>
-                </div>
-              </div>
-            </div>
+        {/* ============= HERO: TRAINING CARD ============= */}
+        {isWorkoutDay && !plan.shouldRest ? (
+          <div className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/80 rounded-3xl p-6 shadow-xl">
+            {/* Decorative elements */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
             
-            <div className="text-right">
-              <div className={cn(
-                "inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold",
-                plan.shouldRest 
-                  ? "bg-secondary text-muted-foreground" 
-                  : "bg-primary/20 text-primary"
-              )}>
-                {plan.shouldRest ? (
-                  <>
-                    <Moon className="w-4 h-4" />
-                    Descanso
-                  </>
-                ) : (
-                  <>
-                    <Zap className="w-4 h-4" />
-                    Entreno
-                  </>
-                )}
+            <div className="relative">
+              <div className="flex items-center gap-2 mb-3">
+                <Dumbbell className="w-5 h-5 text-primary-foreground/80" />
+                <span className="text-primary-foreground/80 text-sm font-medium uppercase tracking-wide">
+                  Tu entrenamiento de hoy
+                </span>
               </div>
+              
+              <h2 className="text-3xl font-bold text-primary-foreground mb-2">
+                {workoutName}
+              </h2>
+              
+              <p className="text-primary-foreground/70 text-sm mb-6">
+                {exerciseCount > 0 ? `${exerciseCount} ejercicios` : plan.training.reason}
+              </p>
+              
+              <Button
+                onClick={() => navigate('/entreno')}
+                size="lg"
+                className="w-full bg-white text-primary hover:bg-white/90 font-bold text-lg h-14 rounded-xl shadow-lg"
+              >
+                <Play className="w-5 h-5 mr-2 fill-current" />
+                Empezar Entrenamiento
+              </Button>
             </div>
           </div>
-        </div>
-
-        {/* Training Card */}
-        <div 
-          onClick={() => navigate('/entreno')}
-          className="group bg-card hover:bg-card/80 rounded-2xl p-5 border border-border/50 cursor-pointer active:scale-[0.98] transition-all duration-200"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-accent/10">
-                <Dumbbell className="w-6 h-6 text-primary" />
+        ) : (
+          /* Rest Day Hero */
+          <div className="relative overflow-hidden bg-gradient-to-br from-secondary via-secondary to-muted rounded-3xl p-6">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+            
+            <div className="relative flex items-center gap-4">
+              <div className="p-4 rounded-2xl bg-primary/10">
+                <Moon className="w-8 h-8 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-foreground text-lg">{workoutName}</h3>
-                <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1">
-                  {isWorkoutDay ? plan.training.reason : 'Recupera para volver más fuerte'}
+                <h2 className="text-2xl font-bold text-foreground">Día de descanso</h2>
+                <p className="text-muted-foreground">
+                  {plan.shouldRest ? 'Tu cuerpo necesita recuperarse' : 'Recupera para volver más fuerte'}
                 </p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+          </div>
+        )}
+
+        {/* ============= QUICK INFO GRID ============= */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* Calories */}
+          <div 
+            onClick={() => navigate('/nutricion')}
+            className="bg-card rounded-2xl p-4 border border-border/50 cursor-pointer active:scale-95 transition-transform"
+          >
+            <Utensils className="w-5 h-5 text-success mb-2" />
+            <p className="text-lg font-bold text-foreground">{plan.nutrition.dailyCalories.toLocaleString()}</p>
+            <p className="text-xs text-muted-foreground">kcal</p>
+          </div>
+          
+          {/* Protein */}
+          <div 
+            onClick={() => navigate('/nutricion')}
+            className="bg-card rounded-2xl p-4 border border-border/50 cursor-pointer active:scale-95 transition-transform"
+          >
+            <Zap className="w-5 h-5 text-purple-400 mb-2" />
+            <p className="text-lg font-bold text-foreground">{plan.nutrition.protein}g</p>
+            <p className="text-xs text-muted-foreground">proteína</p>
+          </div>
+          
+          {/* Hydration */}
+          <div 
+            onClick={() => navigate('/nutricion')}
+            className="bg-card rounded-2xl p-4 border border-border/50 cursor-pointer active:scale-95 transition-transform"
+          >
+            <Droplets className="w-5 h-5 text-blue-400 mb-2" />
+            <p className="text-lg font-bold text-foreground">{hydration.dailyLiters.toFixed(1)}L</p>
+            <p className="text-xs text-muted-foreground">agua</p>
           </div>
         </div>
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 gap-3">
-          {[
-          { icon: Utensils, label: 'Calorías', value: plan.nutrition.dailyCalories.toLocaleString(), color: 'text-success', bg: 'bg-success/10' },
-          { icon: Droplets, label: 'Hidratación', value: `${(plan.nutrition.hydrationTarget / 1000).toFixed(1)}L`, color: 'text-blue-400', bg: 'bg-blue-400/10' },
-          { icon: Target, label: 'Proteína', value: `${plan.nutrition.protein}g`, color: 'text-purple-400', bg: 'bg-purple-400/10' },
-          { icon: Moon, label: 'Dormir', value: '23:00', color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-card rounded-2xl p-4 border border-border/50">
-              <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center mb-3", stat.bg)}>
-                <stat.icon className={cn("w-5 h-5", stat.color)} />
-              </div>
-              <p className="text-xs text-muted-foreground font-medium">{stat.label}</p>
-              <p className="text-xl font-bold text-foreground mt-0.5">{stat.value}</p>
-            </div>
-          ))}
+        {/* Hydration tip */}
+        <div className="flex items-start gap-3 px-4 py-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+          <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-300/80">
+            {hydration.tips[0]}. {hydration.reason.split('Basado en tu')[0]}
+          </p>
         </div>
 
-        {/* Supplements Summary */}
+        {/* ============= SUPPLEMENTS CARD ============= */}
         <div 
           onClick={() => navigate('/nutricion')}
-          className="group bg-card hover:bg-card/80 rounded-2xl p-5 border border-border/50 cursor-pointer active:scale-[0.98] transition-all duration-200"
+          className="group bg-card hover:bg-card/80 rounded-2xl p-4 border border-border/50 cursor-pointer active:scale-[0.98] transition-all"
         >
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-purple-500/10">
+              <div className="p-2 rounded-xl bg-purple-500/10">
                 <Pill className="w-5 h-5 text-purple-400" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground">Suplementos</h3>
-                <p className="text-xs text-muted-foreground">{takenCount} de {totalSupplements} tomados</p>
+                <p className="text-xs text-muted-foreground">{takenCount}/{totalSupplements} tomados</p>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
           </div>
           
-          <Progress value={progressPercent} className="h-2 mb-4" />
+          <Progress value={progressPercent} className="h-2 mb-3" />
           
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {recommendations?.recommendations?.slice(0, 4).map((supp, i) => {
               const isTaken = logs?.some(l => l.timing === supp.timing && l.taken);
               return (
                 <div 
                   key={i} 
                   className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                    "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium",
                     isTaken 
                       ? "bg-success/20 text-success" 
                       : "bg-secondary/80 text-muted-foreground"
@@ -224,32 +236,23 @@ const TodayPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Priorities */}
-        <div className="bg-card rounded-2xl p-5 border border-border/50">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 rounded-xl bg-primary/10">
-              <Star className="w-5 h-5 text-primary" />
-            </div>
-            <h3 className="font-semibold text-foreground">Prioridades del día</h3>
-          </div>
-          
-          <div className="space-y-3">
-            {plan.priorities.map((priority, i) => (
-              <div 
-                key={i} 
-                className="flex items-start gap-4 p-4 bg-secondary/50 hover:bg-secondary/70 rounded-xl transition-colors"
-              >
-                <span className="text-2xl">{priority.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-foreground">{priority.title}</p>
-                  <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">
-                    {priority.description}
-                  </p>
-                </div>
-                <TrendingUp className="w-4 h-4 text-muted-foreground/50 flex-shrink-0 mt-1" />
+        {/* ============= PRIORITIES (Compact) ============= */}
+        <div className="space-y-2">
+          <h3 className="font-semibold text-foreground text-sm px-1">Prioridades del día</h3>
+          {plan.priorities.slice(0, 3).map((priority, i) => (
+            <div 
+              key={i} 
+              className="flex items-center gap-3 p-3 bg-secondary/40 rounded-xl"
+            >
+              <span className="text-xl">{priority.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-foreground text-sm">{priority.title}</p>
+                <p className="text-xs text-muted-foreground line-clamp-1">
+                  {priority.description}
+                </p>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

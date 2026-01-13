@@ -126,8 +126,26 @@ export function nutritionDecision(input: NutritionDecisionInput): NutritionDecis
   // Recalculate actual calories
   dailyCalories = (protein * 4) + (carbs * 4) + (fats * 9);
   
-  // Hydration target: 35-40ml per kg for active people
-  const hydrationTarget = Math.round(weightKg * 38 / 100) * 100; // Round to nearest 100ml
+  // Hydration target: personalized based on weight, height and goal
+  let mlPerKg = 40; // Base for active individuals
+  
+  // Adjust for goal
+  switch (fitnessGoal) {
+    case 'muscle_gain':
+      mlPerKg += 5; // More water for muscle synthesis
+      break;
+    case 'fat_loss':
+      mlPerKg += 3; // Water helps satiety and metabolism
+      break;
+    case 'recomposition':
+      mlPerKg += 4;
+      break;
+  }
+  
+  // Adjust for height - taller people need more
+  const heightMultiplier = heightCm ? (heightCm > 180 ? 1.1 : heightCm < 165 ? 0.9 : 1) : 1;
+  
+  const hydrationTarget = Math.round((weightKg * mlPerKg * heightMultiplier) / 100) * 100;
   
   // Generate meal distribution
   const mealDistribution = generateMealDistribution({
