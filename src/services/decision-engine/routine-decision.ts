@@ -1,5 +1,5 @@
 // Routine Decision Service
-// Generates personalized workout routines based on user goals and external activities
+// Generates 100% personalized workout routines based on user profile and schedule
 
 import { 
   ExternalActivityType, 
@@ -15,19 +15,25 @@ export interface RoutineDecisionInput {
   preferredGymDays?: string[];
   weightKg?: number;
   heightCm?: number;
+  gender?: 'male' | 'female' | 'other';
+  age?: number;
+}
+
+export interface RoutineExercise {
+  name: string;
+  muscleGroup: string;
+  sets: number;
+  repsMin: number;
+  repsMax: number;
+  restSeconds: number;
+  notes?: string;
 }
 
 export interface RoutineDay {
   name: string;
   focus: string[];
-  exercises: {
-    name: string;
-    muscleGroup: string;
-    sets: number;
-    repsMin: number;
-    repsMax: number;
-    restSeconds: number;
-  }[];
+  exercises: RoutineExercise[];
+  assignedDay?: string; // Specific weekday (monday, tuesday, etc.)
   notes?: string;
   avoidMuscles?: string[];
 }
@@ -37,99 +43,164 @@ export interface RoutineRecommendation {
   description: string;
   splitType: 'push_pull_legs' | 'upper_lower' | 'full_body' | 'bro_split' | 'custom';
   days: RoutineDay[];
-  weeklySchedule?: { [day: string]: string }; // day -> routine day name
-  externalActivityNotes?: string[];
+  weeklySchedule: { [day: string]: string }; // day -> routine day name
+  externalActivityNotes: string[];
+  personalNotes: string[];
 }
 
 const DAYS_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+const DAY_LABELS: Record<string, string> = {
+  monday: 'Lunes',
+  tuesday: 'Martes',
+  wednesday: 'Miércoles',
+  thursday: 'Jueves',
+  friday: 'Viernes',
+  saturday: 'Sábado',
+  sunday: 'Domingo',
+};
 
-// ============= Exercise Templates (Gym Bro Optimized) =============
+// ============= Exercise Templates by Goal =============
 
-const PUSH_EXERCISES = [
-  // Compound strength first - 5x5 style
-  { name: 'Press Banca', muscleGroup: 'chest', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
-  { name: 'Press Inclinado Mancuernas', muscleGroup: 'chest', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Aperturas con Mancuernas', muscleGroup: 'chest', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 4, repsMin: 8, repsMax: 10, restSeconds: 120 },
-  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 4, repsMin: 12, repsMax: 15, restSeconds: 45 },
-  { name: 'Fondos en Paralelas', muscleGroup: 'triceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Extensiones Tríceps Polea', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-  { name: 'Press Francés', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
+interface ExerciseTemplate {
+  name: string;
+  muscleGroup: string;
+  baseSets: number;
+  baseRepsMin: number;
+  baseRepsMax: number;
+  baseRest: number;
+  isCompound: boolean;
+  priority: number; // Lower = more important
+}
+
+// Push exercises with priority
+const PUSH_EXERCISES: ExerciseTemplate[] = [
+  { name: 'Press Banca', muscleGroup: 'chest', baseSets: 4, baseRepsMin: 5, baseRepsMax: 8, baseRest: 180, isCompound: true, priority: 1 },
+  { name: 'Press Inclinado Mancuernas', muscleGroup: 'chest', baseSets: 3, baseRepsMin: 8, baseRepsMax: 12, baseRest: 90, isCompound: true, priority: 2 },
+  { name: 'Aperturas con Mancuernas', muscleGroup: 'chest', baseSets: 3, baseRepsMin: 10, baseRepsMax: 15, baseRest: 60, isCompound: false, priority: 4 },
+  { name: 'Press Militar', muscleGroup: 'shoulders', baseSets: 4, baseRepsMin: 6, baseRepsMax: 10, baseRest: 120, isCompound: true, priority: 1 },
+  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', baseSets: 4, baseRepsMin: 12, baseRepsMax: 15, baseRest: 45, isCompound: false, priority: 3 },
+  { name: 'Elevaciones Frontales', muscleGroup: 'shoulders', baseSets: 3, baseRepsMin: 12, baseRepsMax: 15, baseRest: 45, isCompound: false, priority: 5 },
+  { name: 'Fondos en Paralelas', muscleGroup: 'triceps', baseSets: 3, baseRepsMin: 8, baseRepsMax: 12, baseRest: 90, isCompound: true, priority: 2 },
+  { name: 'Extensiones Tríceps Polea', muscleGroup: 'triceps', baseSets: 3, baseRepsMin: 10, baseRepsMax: 15, baseRest: 60, isCompound: false, priority: 3 },
+  { name: 'Press Francés', muscleGroup: 'triceps', baseSets: 3, baseRepsMin: 10, baseRepsMax: 12, baseRest: 60, isCompound: false, priority: 4 },
+  { name: 'Patada de Tríceps', muscleGroup: 'triceps', baseSets: 3, baseRepsMin: 12, baseRepsMax: 15, baseRest: 45, isCompound: false, priority: 5 },
 ];
 
-const PULL_EXERCISES = [
-  // Heavy compounds first
-  { name: 'Dominadas', muscleGroup: 'back', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-  { name: 'Remo con Barra', muscleGroup: 'back', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
-  { name: 'Jalón al Pecho', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Remo Mancuerna', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Face Pulls', muscleGroup: 'shoulders', sets: 4, repsMin: 15, repsMax: 20, restSeconds: 45 },
-  { name: 'Curl Bíceps Barra', muscleGroup: 'biceps', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 60 },
-  { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
-  { name: 'Curl Concentrado', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 45 },
+const PULL_EXERCISES: ExerciseTemplate[] = [
+  { name: 'Dominadas', muscleGroup: 'back', baseSets: 4, baseRepsMin: 6, baseRepsMax: 10, baseRest: 120, isCompound: true, priority: 1 },
+  { name: 'Remo con Barra', muscleGroup: 'back', baseSets: 4, baseRepsMin: 5, baseRepsMax: 8, baseRest: 180, isCompound: true, priority: 1 },
+  { name: 'Jalón al Pecho', muscleGroup: 'back', baseSets: 3, baseRepsMin: 10, baseRepsMax: 12, baseRest: 90, isCompound: true, priority: 2 },
+  { name: 'Remo Mancuerna', muscleGroup: 'back', baseSets: 3, baseRepsMin: 10, baseRepsMax: 12, baseRest: 90, isCompound: true, priority: 3 },
+  { name: 'Face Pulls', muscleGroup: 'shoulders', baseSets: 4, baseRepsMin: 15, baseRepsMax: 20, baseRest: 45, isCompound: false, priority: 2 },
+  { name: 'Curl Bíceps Barra', muscleGroup: 'biceps', baseSets: 3, baseRepsMin: 8, baseRepsMax: 12, baseRest: 60, isCompound: false, priority: 2 },
+  { name: 'Curl Martillo', muscleGroup: 'biceps', baseSets: 3, baseRepsMin: 10, baseRepsMax: 12, baseRest: 60, isCompound: false, priority: 3 },
+  { name: 'Curl Concentrado', muscleGroup: 'biceps', baseSets: 3, baseRepsMin: 10, baseRepsMax: 15, baseRest: 45, isCompound: false, priority: 4 },
+  { name: 'Curl Predicador', muscleGroup: 'biceps', baseSets: 3, baseRepsMin: 10, baseRepsMax: 12, baseRest: 60, isCompound: false, priority: 5 },
 ];
 
-const LEG_EXERCISES = [
-  // King of exercises first
-  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
-  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 10, restSeconds: 120 },
-  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Extensiones de Cuádriceps', muscleGroup: 'quadriceps', sets: 3, repsMin: 12, repsMax: 15, restSeconds: 60 },
-  { name: 'Curl Femoral', muscleGroup: 'hamstrings', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 5, repsMin: 12, repsMax: 20, restSeconds: 45 },
+const LEG_EXERCISES: ExerciseTemplate[] = [
+  { name: 'Sentadilla', muscleGroup: 'quadriceps', baseSets: 4, baseRepsMin: 5, baseRepsMax: 8, baseRest: 180, isCompound: true, priority: 1 },
+  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', baseSets: 4, baseRepsMin: 8, baseRepsMax: 10, baseRest: 120, isCompound: true, priority: 1 },
+  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', baseSets: 4, baseRepsMin: 10, baseRepsMax: 12, baseRest: 90, isCompound: true, priority: 2 },
+  { name: 'Zancadas', muscleGroup: 'quadriceps', baseSets: 3, baseRepsMin: 10, baseRepsMax: 12, baseRest: 90, isCompound: true, priority: 3 },
+  { name: 'Extensiones de Cuádriceps', muscleGroup: 'quadriceps', baseSets: 3, baseRepsMin: 12, baseRepsMax: 15, baseRest: 60, isCompound: false, priority: 4 },
+  { name: 'Curl Femoral', muscleGroup: 'hamstrings', baseSets: 3, baseRepsMin: 10, baseRepsMax: 15, baseRest: 60, isCompound: false, priority: 3 },
+  { name: 'Hip Thrust', muscleGroup: 'glutes', baseSets: 4, baseRepsMin: 10, baseRepsMax: 12, baseRest: 90, isCompound: true, priority: 2 },
+  { name: 'Elevación de Gemelos', muscleGroup: 'calves', baseSets: 4, baseRepsMin: 15, baseRepsMax: 20, baseRest: 45, isCompound: false, priority: 3 },
+  { name: 'Sentadilla Búlgara', muscleGroup: 'quadriceps', baseSets: 3, baseRepsMin: 8, baseRepsMax: 12, baseRest: 90, isCompound: true, priority: 4 },
 ];
 
-const UPPER_EXERCISES = [
-  { name: 'Press Banca', muscleGroup: 'chest', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
-  { name: 'Remo con Barra', muscleGroup: 'back', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
-  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 4, repsMin: 8, repsMax: 10, restSeconds: 120 },
-  { name: 'Jalón al Pecho', muscleGroup: 'back', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Face Pulls', muscleGroup: 'shoulders', sets: 3, repsMin: 15, repsMax: 20, restSeconds: 45 },
-  { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 60 },
-  { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 60 },
-];
+// ============= Body Composition Analysis =============
 
-const LOWER_EXERCISES = [
-  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 5, repsMin: 5, repsMax: 5, restSeconds: 180 },
-  { name: 'Peso Muerto Rumano', muscleGroup: 'hamstrings', sets: 4, repsMin: 8, repsMax: 10, restSeconds: 120 },
-  { name: 'Prensa de Piernas', muscleGroup: 'quadriceps', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Zancadas', muscleGroup: 'quadriceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 4, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Curl Femoral', muscleGroup: 'hamstrings', sets: 3, repsMin: 10, repsMax: 15, restSeconds: 60 },
-  { name: 'Elevación de Gemelos', muscleGroup: 'calves', sets: 5, repsMin: 12, repsMax: 20, restSeconds: 45 },
-];
+interface BodyAnalysis {
+  bmi: number;
+  category: 'underweight' | 'light' | 'average' | 'overweight' | 'heavy';
+  volumeMultiplier: number;
+  restAdjustment: number;
+  repAdjustment: number;
+  notes: string[];
+}
 
-const FULLBODY_A_EXERCISES = [
-  { name: 'Sentadilla', muscleGroup: 'quadriceps', sets: 4, repsMin: 5, repsMax: 8, restSeconds: 180 },
-  { name: 'Press Banca', muscleGroup: 'chest', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-  { name: 'Remo con Barra', muscleGroup: 'back', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-  { name: 'Press Militar', muscleGroup: 'shoulders', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Face Pulls', muscleGroup: 'shoulders', sets: 3, repsMin: 15, repsMax: 20, restSeconds: 45 },
-  { name: 'Curl Bíceps', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
-  { name: 'Extensiones Tríceps', muscleGroup: 'triceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
-];
+function analyzeBody(weightKg?: number, heightCm?: number, gender?: string, age?: number): BodyAnalysis {
+  const notes: string[] = [];
+  
+  if (!weightKg || !heightCm) {
+    return {
+      bmi: 22,
+      category: 'average',
+      volumeMultiplier: 1.0,
+      restAdjustment: 0,
+      repAdjustment: 0,
+      notes: []
+    };
+  }
 
-const FULLBODY_B_EXERCISES = [
-  { name: 'Peso Muerto', muscleGroup: 'hamstrings', sets: 4, repsMin: 5, repsMax: 8, restSeconds: 180 },
-  { name: 'Press Inclinado', muscleGroup: 'chest', sets: 4, repsMin: 8, repsMax: 12, restSeconds: 90 },
-  { name: 'Dominadas', muscleGroup: 'back', sets: 4, repsMin: 6, repsMax: 10, restSeconds: 120 },
-  { name: 'Elevaciones Laterales', muscleGroup: 'shoulders', sets: 4, repsMin: 12, repsMax: 15, restSeconds: 45 },
-  { name: 'Hip Thrust', muscleGroup: 'glutes', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 90 },
-  { name: 'Curl Martillo', muscleGroup: 'biceps', sets: 3, repsMin: 10, repsMax: 12, restSeconds: 60 },
-  { name: 'Fondos', muscleGroup: 'triceps', sets: 3, repsMin: 8, repsMax: 12, restSeconds: 90 },
-];
+  const heightM = heightCm / 100;
+  const bmi = weightKg / (heightM * heightM);
+  
+  let category: BodyAnalysis['category'];
+  let volumeMultiplier = 1.0;
+  let restAdjustment = 0;
+  let repAdjustment = 0;
+
+  if (bmi < 18.5) {
+    category = 'underweight';
+    volumeMultiplier = 0.85;
+    repAdjustment = -1;
+    notes.push('🎯 Enfoque en movimientos compuestos pesados con descansos largos');
+    notes.push('🍽️ Prioriza superávit calórico para maximizar ganancias');
+  } else if (bmi < 21) {
+    category = 'light';
+    volumeMultiplier = 1.1;
+    repAdjustment = 1;
+    restAdjustment = -10;
+    notes.push('📈 Volumen moderado-alto para maximizar estímulo de crecimiento');
+  } else if (bmi >= 27) {
+    category = 'heavy';
+    volumeMultiplier = 0.9;
+    restAdjustment = 20;
+    notes.push('⏱️ Descansos más largos para optimizar rendimiento');
+    notes.push('🔥 Considera añadir 10-15 min de cardio post-entreno');
+  } else if (bmi >= 25) {
+    category = 'overweight';
+    volumeMultiplier = 0.95;
+    restAdjustment = 10;
+    notes.push('💪 Enfoque en intensidad sobre volumen total');
+  } else {
+    category = 'average';
+  }
+
+  // Age adjustments
+  if (age && age > 40) {
+    restAdjustment += 15;
+    notes.push('🕐 Calentamiento extendido recomendado (10-15 min)');
+  }
+  if (age && age < 25) {
+    volumeMultiplier *= 1.05;
+  }
+
+  // Gender adjustments
+  if (gender === 'female') {
+    notes.push('🎯 Énfasis en glúteos e isquios para balance muscular');
+  }
+
+  return { bmi, category, volumeMultiplier, restAdjustment, repAdjustment, notes };
+}
 
 // ============= Fatigue Analysis =============
 
-function analyzeFatigue(externalActivities: WeeklyExternalActivities): {
+interface FatigueAnalysis {
   muscleLoadByDay: { [day: string]: { high: string[]; moderate: string[] } };
   totalCardioLoad: number;
+  blockedDays: string[];
   recommendations: string[];
-} {
+}
+
+function analyzeFatigue(externalActivities: WeeklyExternalActivities): FatigueAnalysis {
   const muscleLoadByDay: { [day: string]: { high: string[]; moderate: string[] } } = {};
   let totalCardioLoad = 0;
   const recommendations: string[] = [];
+  const blockedDays: string[] = [];
 
   for (const [day, activity] of Object.entries(externalActivities)) {
     if (!activity) continue;
@@ -141,6 +212,11 @@ function analyzeFatigue(externalActivities: WeeklyExternalActivities): {
       high: impact.highFatigue,
       moderate: impact.moderateFatigue,
     };
+
+    // High intensity activities block gym
+    if (impact.cardiovascularLoad === 'high' && activity.duration >= 60) {
+      blockedDays.push(day);
+    }
 
     if (impact.cardiovascularLoad === 'high') totalCardioLoad += 2;
     else if (impact.cardiovascularLoad === 'moderate') totalCardioLoad += 1;
@@ -158,95 +234,177 @@ function analyzeFatigue(externalActivities: WeeklyExternalActivities): {
   }
 
   if (totalCardioLoad >= 4) {
-    recommendations.push('🫀 Alto volumen cardio semanal - considera añadir calorías extra');
+    recommendations.push('🫀 Alto volumen cardio semanal - aumenta calorías 200-300kcal');
   }
 
-  return { muscleLoadByDay, totalCardioLoad, recommendations };
+  return { muscleLoadByDay, totalCardioLoad, blockedDays, recommendations };
 }
 
-// ============= Smart Routine Generator =============
+// ============= Smart Split Selection =============
 
-function filterExercises(
-  exercises: typeof PUSH_EXERCISES,
-  avoidMuscles: string[],
-  reduceVolumeMuscles: string[]
-): typeof PUSH_EXERCISES {
-  return exercises
-    .filter(ex => !avoidMuscles.includes(ex.muscleGroup))
-    .map(ex => {
-      if (reduceVolumeMuscles.includes(ex.muscleGroup)) {
-        return { ...ex, sets: Math.max(ex.sets - 1, 2) };
+function selectOptimalSplit(
+  availableGymDays: number,
+  hasSignificantExternalLoad: boolean,
+  experienceLevel: string,
+  fitnessGoal: string
+): { splitType: RoutineRecommendation['splitType']; routineDays: string[] } {
+  
+  // Beginners benefit from more frequency
+  if (experienceLevel === 'beginner') {
+    if (availableGymDays <= 3) {
+      return { splitType: 'full_body', routineDays: ['Full Body A', 'Full Body B', 'Full Body C'].slice(0, availableGymDays) };
+    }
+    return { splitType: 'upper_lower', routineDays: ['Upper A', 'Lower A', 'Upper B', 'Lower B'].slice(0, availableGymDays) };
+  }
+
+  // With significant external activities, prefer less frequency per muscle
+  if (hasSignificantExternalLoad && availableGymDays <= 3) {
+    return { splitType: 'full_body', routineDays: ['Full Body A', 'Full Body B', 'Full Body C'].slice(0, availableGymDays) };
+  }
+
+  // Fat loss benefits from more frequency (metabolic demand)
+  if (fitnessGoal === 'fat_loss' && availableGymDays <= 4) {
+    return { splitType: 'upper_lower', routineDays: ['Upper A', 'Lower A', 'Upper B', 'Lower B'].slice(0, availableGymDays) };
+  }
+
+  // Muscle gain with enough days = PPL
+  if (availableGymDays >= 5) {
+    return { 
+      splitType: 'push_pull_legs', 
+      routineDays: ['Push', 'Pull', 'Piernas', 'Push 2', 'Pull 2', 'Piernas 2'].slice(0, availableGymDays) 
+    };
+  }
+  
+  if (availableGymDays >= 4) {
+    return { splitType: 'upper_lower', routineDays: ['Upper A', 'Lower A', 'Upper B', 'Lower B'] };
+  }
+
+  if (availableGymDays === 3) {
+    return { splitType: 'push_pull_legs', routineDays: ['Push', 'Pull', 'Piernas'] };
+  }
+
+  return { splitType: 'full_body', routineDays: ['Full Body A', 'Full Body B'] };
+}
+
+// ============= Exercise Selection & Adjustment =============
+
+function adjustExercise(
+  template: ExerciseTemplate, 
+  bodyAnalysis: BodyAnalysis,
+  fitnessGoal: string,
+  experienceLevel: string
+): RoutineExercise {
+  let sets = template.baseSets;
+  let repsMin = template.baseRepsMin;
+  let repsMax = template.baseRepsMax;
+  let restSeconds = template.baseRest;
+
+  // Goal adjustments
+  switch (fitnessGoal) {
+    case 'muscle_gain':
+      if (template.isCompound) {
+        sets = Math.min(sets + 1, 5);
+        restSeconds = Math.min(restSeconds + 30, 180);
+      } else {
+        repsMin = 10;
+        repsMax = 15;
       }
-      return ex;
-    });
-}
-
-function getAdjacentDayFatigue(
-  day: string,
-  muscleLoadByDay: { [day: string]: { high: string[]; moderate: string[] } }
-): { avoid: string[]; reduce: string[] } {
-  const dayIndex = DAYS_ORDER.indexOf(day);
-  const prevDay = DAYS_ORDER[(dayIndex - 1 + 7) % 7];
-  const nextDay = DAYS_ORDER[(dayIndex + 1) % 7];
-
-  const avoid: string[] = [];
-  const reduce: string[] = [];
-
-  // Avoid muscles that were heavily worked the day before
-  if (muscleLoadByDay[prevDay]) {
-    avoid.push(...muscleLoadByDay[prevDay].high);
-    reduce.push(...muscleLoadByDay[prevDay].moderate);
+      break;
+    case 'fat_loss':
+      repsMin = Math.max(repsMin, 12);
+      repsMax = Math.min(repsMax + 3, 20);
+      restSeconds = Math.max(restSeconds - 30, 30);
+      sets = Math.max(sets - 1, 2);
+      break;
+    case 'recomposition':
+      repsMin = 8;
+      repsMax = 12;
+      break;
+    case 'maintenance':
+      sets = Math.max(sets - 1, 2);
+      break;
   }
 
-  // Also consider if the next day has intense activity
-  if (muscleLoadByDay[nextDay]) {
-    reduce.push(...muscleLoadByDay[nextDay].high);
+  // Experience adjustments
+  if (experienceLevel === 'beginner') {
+    sets = Math.max(sets - 1, 2);
+    restSeconds = Math.min(restSeconds + 30, 180);
+  } else if (experienceLevel === 'advanced') {
+    sets = Math.min(sets + 1, 6);
   }
 
-  return { avoid: [...new Set(avoid)], reduce: [...new Set(reduce)] };
+  // Body composition adjustments
+  sets = Math.round(sets * bodyAnalysis.volumeMultiplier);
+  sets = Math.max(2, Math.min(sets, 6));
+  repsMax += bodyAnalysis.repAdjustment;
+  restSeconds = Math.max(30, Math.min(restSeconds + bodyAnalysis.restAdjustment, 300));
+
+  return {
+    name: template.name,
+    muscleGroup: template.muscleGroup,
+    sets,
+    repsMin,
+    repsMax,
+    restSeconds,
+  };
 }
 
-// Calculate body composition category based on weight and height
-function getBodyCompositionCategory(weightKg?: number, heightCm?: number): 'light' | 'average' | 'heavy' {
-  if (!weightKg || !heightCm) return 'average';
+function selectExercisesForDay(
+  dayType: string,
+  bodyAnalysis: BodyAnalysis,
+  fitnessGoal: string,
+  experienceLevel: string,
+  avoidMuscles: string[],
+  reduceMuscles: string[]
+): RoutineExercise[] {
+  let templates: ExerciseTemplate[] = [];
   
-  const heightM = heightCm / 100;
-  const bmi = weightKg / (heightM * heightM);
+  // Select base templates by day type
+  if (dayType.toLowerCase().includes('push')) {
+    templates = [...PUSH_EXERCISES];
+  } else if (dayType.toLowerCase().includes('pull')) {
+    templates = [...PULL_EXERCISES];
+  } else if (dayType.toLowerCase().includes('pierna') || dayType.toLowerCase().includes('lower') || dayType.toLowerCase().includes('leg')) {
+    templates = [...LEG_EXERCISES];
+  } else if (dayType.toLowerCase().includes('upper')) {
+    // Mix of push and pull for upper
+    templates = [
+      ...PUSH_EXERCISES.filter(e => e.priority <= 3),
+      ...PULL_EXERCISES.filter(e => e.priority <= 3),
+    ].sort((a, b) => a.priority - b.priority);
+  } else if (dayType.toLowerCase().includes('full')) {
+    // Full body = compound focus
+    templates = [
+      ...LEG_EXERCISES.filter(e => e.priority <= 2),
+      ...PUSH_EXERCISES.filter(e => e.priority <= 2),
+      ...PULL_EXERCISES.filter(e => e.priority <= 2),
+    ].sort((a, b) => a.priority - b.priority);
+  }
+
+  // Filter out avoided muscles
+  templates = templates.filter(t => !avoidMuscles.includes(t.muscleGroup));
   
-  if (bmi < 20) return 'light';
-  if (bmi > 27) return 'heavy';
-  return 'average';
+  // Reduce sets for fatigued muscles
+  templates = templates.map(t => {
+    if (reduceMuscles.includes(t.muscleGroup)) {
+      return { ...t, baseSets: Math.max(t.baseSets - 1, 2) };
+    }
+    return t;
+  });
+
+  // Sort by priority and select appropriate number
+  templates.sort((a, b) => a.priority - b.priority);
+  
+  // Limit exercises based on experience
+  const maxExercises = experienceLevel === 'beginner' ? 5 : 
+                       experienceLevel === 'intermediate' ? 7 : 8;
+  
+  templates = templates.slice(0, maxExercises);
+
+  return templates.map(t => adjustExercise(t, bodyAnalysis, fitnessGoal, experienceLevel));
 }
 
-// Adjust volume based on body composition
-function getVolumeMultiplier(bodyCategory: 'light' | 'average' | 'heavy', fitnessGoal: string): number {
-  // Heavier individuals may need more volume for hypertrophy but less for fat loss
-  // Lighter individuals may benefit from slightly higher volume for muscle gain
-  if (fitnessGoal === 'muscle_gain') {
-    if (bodyCategory === 'light') return 1.15; // Needs more stimulus
-    if (bodyCategory === 'heavy') return 0.9;  // Already has base, focus on intensity
-    return 1.0;
-  }
-  if (fitnessGoal === 'fat_loss') {
-    if (bodyCategory === 'heavy') return 1.1; // More volume for calorie burn
-    if (bodyCategory === 'light') return 0.9; // Preserve muscle, less volume
-    return 1.0;
-  }
-  return 1.0;
-}
-
-// Get intensity recommendation based on body composition
-function getIntensityAdjustment(bodyCategory: 'light' | 'average' | 'heavy'): { repsAdjust: number; restAdjust: number } {
-  if (bodyCategory === 'heavy') {
-    // Heavier individuals may need more rest between sets
-    return { repsAdjust: 0, restAdjust: 15 };
-  }
-  if (bodyCategory === 'light') {
-    // Lighter individuals can often handle shorter rest
-    return { repsAdjust: 1, restAdjust: -10 };
-  }
-  return { repsAdjust: 0, restAdjust: 0 };
-}
+// ============= Main Routine Generator =============
 
 export function routineDecision(input: RoutineDecisionInput): RoutineRecommendation {
   const { 
@@ -256,161 +414,103 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
     externalActivities = {},
     preferredGymDays = [],
     weightKg,
-    heightCm 
+    heightCm,
+    gender,
+    age
   } = input;
 
+  // Analyze user body composition
+  const bodyAnalysis = analyzeBody(weightKg, heightCm, gender, age);
+  
+  // Analyze external activities
   const fatigueAnalysis = analyzeFatigue(externalActivities);
-  const gymDays = preferredGymDays.length > 0 ? preferredGymDays : [];
-  const actualGymDays = gymDays.length || daysPerWeek;
+  
+  // Determine available gym days
+  const availableGymDays = preferredGymDays.length > 0 
+    ? preferredGymDays.filter(d => !fatigueAnalysis.blockedDays.includes(d))
+    : DAYS_ORDER.filter(d => !fatigueAnalysis.blockedDays.includes(d)).slice(0, daysPerWeek);
 
-  // Body composition analysis for personalization
-  const bodyCategory = getBodyCompositionCategory(weightKg, heightCm);
-  const volumeMultiplier = getVolumeMultiplier(bodyCategory, fitnessGoal);
-  const intensityAdjust = getIntensityAdjustment(bodyCategory);
-
-  // Determine best split based on available gym days
-  let splitType: RoutineRecommendation['splitType'];
-  let baseDays: RoutineDay[];
-  let name: string;
-  let description: string;
-
-  // With external activities, we need a more flexible approach
   const hasSignificantExternalLoad = Object.keys(externalActivities).length >= 2;
 
-  // Consider gym days from schedule for optimal split selection
-  if (actualGymDays <= 2 || (actualGymDays <= 3 && hasSignificantExternalLoad)) {
-    splitType = 'full_body';
-    name = 'Rutina Full Body';
-    description = 'Entrena todo el cuerpo cada sesión, optimizado para complementar tus otras actividades.';
-    baseDays = [
-      { name: 'Full Body A', focus: ['chest', 'back', 'quadriceps', 'shoulders'], exercises: FULLBODY_A_EXERCISES },
-      { name: 'Full Body B', focus: ['hamstrings', 'back', 'chest', 'shoulders'], exercises: FULLBODY_B_EXERCISES },
-    ];
-  } else if (actualGymDays <= 4) {
-    splitType = 'upper_lower';
-    name = 'Rutina Upper/Lower';
-    description = 'División torso/piernas adaptada a tu agenda de actividades.';
-    baseDays = [
-      { name: 'Upper (Torso)', focus: ['chest', 'back', 'shoulders', 'biceps', 'triceps'], exercises: UPPER_EXERCISES },
-      { name: 'Lower (Piernas)', focus: ['quadriceps', 'hamstrings', 'glutes', 'calves'], exercises: LOWER_EXERCISES },
-    ];
-  } else {
-    splitType = 'push_pull_legs';
-    name = 'Rutina Push/Pull/Legs';
-    description = 'División clásica por movimientos, ajustada para evitar sobreentrenamiento.';
-    baseDays = [
-      { name: 'Push (Pecho, Hombros, Tríceps)', focus: ['chest', 'shoulders', 'triceps'], exercises: PUSH_EXERCISES },
-      { name: 'Pull (Espalda, Bíceps)', focus: ['back', 'biceps'], exercises: PULL_EXERCISES },
-      { name: 'Legs (Piernas)', focus: ['quadriceps', 'hamstrings', 'glutes', 'calves'], exercises: LEG_EXERCISES },
-    ];
-  }
+  // Select optimal split
+  const { splitType, routineDays } = selectOptimalSplit(
+    availableGymDays.length,
+    hasSignificantExternalLoad,
+    experienceLevel,
+    fitnessGoal
+  );
 
-  // Add personalization notes
-  const personalNotes: string[] = [];
-  if (weightKg && heightCm) {
-    if (bodyCategory === 'light') {
-      personalNotes.push('📊 Tu composición corporal sugiere enfoque en volumen moderado-alto para estimular crecimiento');
-    } else if (bodyCategory === 'heavy') {
-      personalNotes.push('📊 Tu composición corporal sugiere enfoque en intensidad con descansos adecuados');
+  // Create weekly schedule - assign routine days to specific weekdays
+  const weeklySchedule: { [day: string]: string } = {};
+  const sortedGymDays = availableGymDays.sort((a, b) => 
+    DAYS_ORDER.indexOf(a) - DAYS_ORDER.indexOf(b)
+  );
+
+  // Create routine days with assigned weekdays
+  const routineDaysData: RoutineDay[] = [];
+  const personalNotes: string[] = [...bodyAnalysis.notes];
+
+  for (let i = 0; i < Math.min(routineDays.length, sortedGymDays.length); i++) {
+    const dayName = routineDays[i];
+    const assignedDay = sortedGymDays[i];
+    
+    // Get muscles to avoid/reduce based on adjacent day fatigue
+    const prevDay = DAYS_ORDER[(DAYS_ORDER.indexOf(assignedDay) - 1 + 7) % 7];
+    const nextDay = DAYS_ORDER[(DAYS_ORDER.indexOf(assignedDay) + 1) % 7];
+    
+    const avoidMuscles: string[] = [];
+    const reduceMuscles: string[] = [];
+    
+    if (fatigueAnalysis.muscleLoadByDay[prevDay]) {
+      avoidMuscles.push(...fatigueAnalysis.muscleLoadByDay[prevDay].high);
+      reduceMuscles.push(...fatigueAnalysis.muscleLoadByDay[prevDay].moderate);
     }
-  }
+    if (fatigueAnalysis.muscleLoadByDay[nextDay]) {
+      reduceMuscles.push(...fatigueAnalysis.muscleLoadByDay[nextDay].high);
+    }
 
-  // Adjust exercises based on fatigue, goals, and body composition
-  const adjustedDays = baseDays.map(day => {
-    let exercises = day.exercises;
+    // Get focus muscles based on day type
+    let focus: string[] = [];
+    if (dayName.toLowerCase().includes('push')) {
+      focus = ['chest', 'shoulders', 'triceps'];
+    } else if (dayName.toLowerCase().includes('pull')) {
+      focus = ['back', 'biceps'];
+    } else if (dayName.toLowerCase().includes('pierna') || dayName.toLowerCase().includes('lower') || dayName.toLowerCase().includes('leg')) {
+      focus = ['quadriceps', 'hamstrings', 'glutes', 'calves'];
+    } else if (dayName.toLowerCase().includes('upper')) {
+      focus = ['chest', 'back', 'shoulders', 'biceps', 'triceps'];
+    } else {
+      focus = ['full_body'];
+    }
 
-    // Apply goal-based and body composition adjustments
-    exercises = exercises.map(ex => {
-      let sets = ex.sets;
-      let repsMin = ex.repsMin;
-      let repsMax = ex.repsMax;
-      let restSeconds = ex.restSeconds;
+    const exercises = selectExercisesForDay(
+      dayName,
+      bodyAnalysis,
+      fitnessGoal,
+      experienceLevel,
+      [...new Set(avoidMuscles)],
+      [...new Set(reduceMuscles)]
+    );
 
-      switch (fitnessGoal) {
-        case 'muscle_gain':
-          sets = Math.min(ex.sets + 1, 5);
-          repsMin = 8;
-          repsMax = 12;
-          restSeconds = Math.min(ex.restSeconds + 30, 180);
-          break;
-        case 'fat_loss':
-          repsMin = 12;
-          repsMax = 15;
-          restSeconds = Math.max(ex.restSeconds - 30, 45);
-          break;
-        case 'recomposition':
-          repsMin = 8;
-          repsMax = 12;
-          break;
-        case 'maintenance':
-          sets = Math.max(ex.sets - 1, 2);
-          break;
-      }
+    // Add notes if there are adjustments
+    let dayNotes: string | undefined;
+    if (avoidMuscles.length > 0) {
+      dayNotes = `⚡ Volumen reducido por actividad del ${DAY_LABELS[prevDay] || prevDay}`;
+    }
 
-      // Experience level adjustments
-      if (experienceLevel === 'beginner') {
-        sets = Math.max(sets - 1, 2);
-        restSeconds = Math.min(restSeconds + 30, 180);
-      } else if (experienceLevel === 'advanced') {
-        sets = Math.min(sets + 1, 6);
-      }
-
-      // Apply body composition adjustments
-      sets = Math.round(sets * volumeMultiplier);
-      sets = Math.max(2, Math.min(sets, 6)); // Clamp between 2-6
-      repsMax += intensityAdjust.repsAdjust;
-      restSeconds = Math.max(30, restSeconds + intensityAdjust.restAdjust);
-
-      return { ...ex, sets, repsMin, repsMax, restSeconds };
+    routineDaysData.push({
+      name: dayName,
+      focus,
+      exercises,
+      assignedDay,
+      notes: dayNotes,
+      avoidMuscles: [...new Set(avoidMuscles)],
     });
 
-    return { ...day, exercises };
-  });
-
-  // Create weekly schedule mapping
-  const weeklySchedule: { [day: string]: string } = {};
-  const notes: string[] = [];
-
-  if (gymDays.length > 0) {
-    // Map gym days to routine days, considering fatigue
-    let routineDayIndex = 0;
-    
-    for (const gymDay of gymDays.sort((a, b) => DAYS_ORDER.indexOf(a) - DAYS_ORDER.indexOf(b))) {
-      const { avoid, reduce } = getAdjacentDayFatigue(gymDay, fatigueAnalysis.muscleLoadByDay);
-      
-      // Try to pick the best routine day that doesn't conflict with fatigue
-      let bestDayIndex = routineDayIndex % adjustedDays.length;
-      
-      // Check if the current routine day has conflicts
-      const routineDay = adjustedDays[bestDayIndex];
-      const hasConflict = routineDay.focus.some(f => avoid.includes(f));
-      
-      if (hasConflict && adjustedDays.length > 1) {
-        // Try another routine day
-        for (let i = 0; i < adjustedDays.length; i++) {
-          const altDay = adjustedDays[i];
-          if (!altDay.focus.some(f => avoid.includes(f))) {
-            bestDayIndex = i;
-            break;
-          }
-        }
-      }
-
-      weeklySchedule[gymDay] = adjustedDays[bestDayIndex].name;
-
-      // Add note if there's reduced volume needed
-      if (reduce.length > 0) {
-        const reduceMuscles = reduce.filter(m => routineDay.focus.includes(m));
-        if (reduceMuscles.length > 0) {
-          notes.push(`📋 ${gymDay}: Reduce volumen en ${reduceMuscles.join(', ')} (fatiga del día anterior/siguiente)`);
-        }
-      }
-
-      routineDayIndex++;
-    }
+    weeklySchedule[assignedDay] = dayName;
   }
 
-  // Goal labels
+  // Generate personalized description
   const goalLabels: Record<string, string> = {
     muscle_gain: 'Hipertrofia',
     fat_loss: 'Definición',
@@ -418,12 +518,39 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
     maintenance: 'Mantenimiento',
   };
 
+  const splitLabels: Record<string, string> = {
+    push_pull_legs: 'Push/Pull/Legs',
+    upper_lower: 'Torso/Pierna',
+    full_body: 'Full Body',
+    bro_split: 'Bro Split',
+    custom: 'Personalizada',
+  };
+
+  // Build description
+  let description = `Rutina ${splitLabels[splitType]} diseñada para ${goalLabels[fitnessGoal].toLowerCase()}. `;
+  
+  if (weightKg && heightCm) {
+    description += `Ajustada a tu composición corporal (${weightKg}kg, ${heightCm}cm). `;
+  }
+  
+  const assignedDaysList = routineDaysData
+    .filter(d => d.assignedDay)
+    .map(d => DAY_LABELS[d.assignedDay!])
+    .join(', ');
+  description += `Días: ${assignedDaysList}.`;
+
+  // Add external activity notes
+  if (Object.keys(externalActivities).length > 0) {
+    personalNotes.push('📅 Rutina adaptada a tus actividades externas');
+  }
+
   return {
-    name: `${name} - ${goalLabels[fitnessGoal]}`,
+    name: `${splitLabels[splitType]} - ${goalLabels[fitnessGoal]}`,
     description,
     splitType,
-    days: adjustedDays,
-    weeklySchedule: Object.keys(weeklySchedule).length > 0 ? weeklySchedule : undefined,
-    externalActivityNotes: [...fatigueAnalysis.recommendations, ...personalNotes, ...notes],
+    days: routineDaysData,
+    weeklySchedule,
+    externalActivityNotes: fatigueAnalysis.recommendations,
+    personalNotes,
   };
 }
