@@ -2,10 +2,12 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
-import { User, Target, Calendar, Settings, LogOut, ChevronRight, Download, Crown, RotateCcw } from 'lucide-react';
+import { User, Target, Calendar, Settings, LogOut, ChevronRight, Download, Crown, RotateCcw, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -13,6 +15,20 @@ const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const { isInstalled } = usePWAInstall();
   const { isPremium } = useSubscription();
+
+  const { data: isAdmin } = useQuery({
+    queryKey: ['isAdmin', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return false;
+      const { data, error } = await supabase.rpc('has_role', {
+        _user_id: user.id,
+        _role: 'admin'
+      });
+      if (error) return false;
+      return data as boolean;
+    },
+    enabled: !!user?.id,
+  });
 
   const handleSignOut = async () => {
     await signOut();
@@ -108,6 +124,18 @@ const ProfilePage: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* Admin Panel Link */}
+      {isAdmin && (
+        <button
+          onClick={() => navigate('/admin')}
+          className="w-full bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-xl p-4 border border-purple-500/30 flex items-center gap-4 hover:from-purple-500/20 hover:to-indigo-500/20 transition-colors mb-4"
+        >
+          <Shield className="w-5 h-5 text-purple-500" />
+          <span className="flex-1 text-left font-medium text-foreground">Panel de administración</span>
+          <ChevronRight className="w-5 h-5 text-purple-500" />
+        </button>
+      )}
 
       {/* Redo Onboarding */}
       <button
