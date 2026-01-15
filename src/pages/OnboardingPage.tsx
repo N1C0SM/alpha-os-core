@@ -43,6 +43,7 @@ interface OnboardingData {
   gender: Gender | null;
   heightCm: number;
   weightKg: number;
+  bodyFatPercentage: number | null;
   dateOfBirth: string;
   
   // Step 2: What to train
@@ -82,6 +83,7 @@ const INITIAL_DATA: OnboardingData = {
   gender: null,
   heightCm: 175,
   weightKg: 75,
+  bodyFatPercentage: null,
   dateOfBirth: '',
   trainingTypes: ['gym'],
   trainingStyle: 'weights',
@@ -151,6 +153,7 @@ const OnboardingPage: React.FC = () => {
         gender: data.gender,
         height_cm: data.heightCm,
         weight_kg: data.weightKg,
+        body_fat_percentage: data.bodyFatPercentage,
         date_of_birth: data.dateOfBirth || null,
         fitness_goal: data.fitnessGoal,
         experience_level: data.experienceLevel,
@@ -365,6 +368,20 @@ const StepBasicInfo: React.FC<StepProps> = ({ data, updateData }) => {
             className="bg-secondary border-border text-center text-lg"
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="bodyfat" className="text-foreground">Grasa corporal % (opcional)</Label>
+        <Input
+          id="bodyfat"
+          type="number"
+          step="0.1"
+          placeholder="Ej: 15"
+          value={data.bodyFatPercentage ?? ''}
+          onChange={e => updateData({ bodyFatPercentage: e.target.value ? Number(e.target.value) : null })}
+          className="bg-secondary border-border text-center text-lg"
+        />
+        <p className="text-xs text-muted-foreground">Ayuda a personalizar mejor tus rutinas</p>
       </div>
 
       <div className="space-y-2">
