@@ -21,7 +21,7 @@ import {
 } from '@/hooks/useWorkouts';
 import { useProfile, useUserSchedule } from '@/hooks/useProfile';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
-import { routineDecision } from '@/services/decision-engine/routine-decision';
+import { routineDecision, ROUTINE_TEMPLATES, RoutineTemplate } from '@/services/decision-engine/routine-decision';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -67,6 +67,8 @@ const TrainingPage: React.FC = () => {
   const [newDayName, setNewDayName] = useState('');
   const [searchExercise, setSearchExercise] = useState('');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<RoutineTemplate>('auto');
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   
   // Pre-workout modal state
   const [preWorkoutDayId, setPreWorkoutDayId] = useState<string | null>(null);
@@ -135,7 +137,7 @@ const TrainingPage: React.FC = () => {
     }
   };
 
-  const handleGenerateRoutine = async () => {
+  const handleGenerateRoutine = async (template: RoutineTemplate = 'auto') => {
     if (!canCreateRoutine) {
       setIsNewRoutineOpen(false);
       setShowUpgradeModal(true);
@@ -146,9 +148,22 @@ const TrainingPage: React.FC = () => {
       return;
     }
 
+    // Check if template requires specific number of days
+    const templateConfig = ROUTINE_TEMPLATES[template];
+    const userDays = schedule?.preferred_workout_days?.length || schedule?.workout_days_per_week || 4;
+    
+    if (template !== 'auto' && (userDays < templateConfig.minDays || userDays > templateConfig.maxDays)) {
+      toast({ 
+        title: 'Días insuficientes', 
+        description: `${templateConfig.name} requiere ${templateConfig.minDays === templateConfig.maxDays ? templateConfig.minDays : `${templateConfig.minDays}-${templateConfig.maxDays}`} días. Tienes ${userDays} configurados.`,
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const daysPerWeek = schedule?.preferred_workout_days?.length || schedule?.workout_days_per_week || 4;
+      const daysPerWeek = template !== 'auto' ? templateConfig.minDays : (schedule?.preferred_workout_days?.length || schedule?.workout_days_per_week || 4);
       const externalActivities = schedule?.external_activities && typeof schedule.external_activities === 'object' && !Array.isArray(schedule.external_activities) 
         ? schedule.external_activities as any
         : {};
@@ -171,6 +186,8 @@ const TrainingPage: React.FC = () => {
         heightCm: profile.height_cm || undefined,
         gender: profile.gender || undefined,
         age,
+        bodyFatPercentage: profile.body_fat_percentage || undefined,
+        template,
       });
 
       // Create the plan
@@ -798,9 +815,31 @@ const TrainingPage: React.FC = () => {
             <DialogDescription>Crea una rutina personalizada o genera una basada en tu objetivo</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-4">
+            {/* Template Selection */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Elige una plantilla:</p>
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                {(Object.entries(ROUTINE_TEMPLATES) as [RoutineTemplate, typeof ROUTINE_TEMPLATES[RoutineTemplate]][]).map(([key, config]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedTemplate(key)}
+                    className={cn(
+                      "p-3 rounded-lg border text-left transition-colors",
+                      selectedTemplate === key 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border hover:border-primary/50"
+                    )}
+                  >
+                    <span className="text-sm font-medium text-foreground">{config.name}</span>
+                    <p className="text-xs text-muted-foreground">{config.minDays === config.maxDays ? `${config.minDays} días` : `${config.minDays}-${config.maxDays} días`}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Generate personalized routine button */}
             <Button 
-              onClick={handleGenerateRoutine}
+              onClick={() => handleGenerateRoutine(selectedTemplate)}
               variant="outline"
               className="w-full h-14 border-primary/50 hover:bg-primary/10 text-foreground"
               disabled={isGenerating || !profile}
@@ -811,11 +850,11 @@ const TrainingPage: React.FC = () => {
                 <Sparkles className="w-5 h-5 mr-2 text-primary" />
               )}
               <div className="text-left">
-                <span className="font-semibold">Generar Rutina Personalizada</span>
+                <span className="font-semibold">
+                  {selectedTemplate === 'auto' ? 'Generar Rutina Personalizada' : `Crear ${ROUTINE_TEMPLATES[selectedTemplate].name}`}
+                </span>
                 <p className="text-xs text-muted-foreground">
-                  Basada en tu objetivo: {profile?.fitness_goal === 'muscle_gain' ? 'Ganar músculo' : 
-                    profile?.fitness_goal === 'fat_loss' ? 'Perder grasa' : 
-                    profile?.fitness_goal === 'recomposition' ? 'Recomposición' : 'Mantenimiento'}
+                  Adaptada a tu peso, altura{profile?.body_fat_percentage ? ' y % grasa' : ''} y objetivo
                 </p>
               </div>
             </Button>
