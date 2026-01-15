@@ -7,6 +7,17 @@ import {
   ACTIVITY_MUSCLE_IMPACT 
 } from '@/types/schedule';
 
+export type RoutineTemplate = 
+  | 'auto' // Auto-select based on profile
+  | 'ppl' // Push/Pull/Legs
+  | 'ppl_6' // PPL x2 (6 days)
+  | 'upper_lower' // Upper/Lower
+  | 'upper_lower_ppl' // Upper/Lower + PPL hybrid
+  | 'full_body' // Full Body 3x
+  | 'bro_split' // Classic Bro Split (5 days)
+  | 'arnold' // Arnold Split
+  | 'phat'; // PHAT (Power Hypertrophy)
+
 export interface RoutineDecisionInput {
   fitnessGoal: 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance';
   experienceLevel: 'beginner' | 'intermediate' | 'advanced';
@@ -17,6 +28,8 @@ export interface RoutineDecisionInput {
   heightCm?: number;
   gender?: 'male' | 'female' | 'other';
   age?: number;
+  bodyFatPercentage?: number;
+  template?: RoutineTemplate;
 }
 
 export interface RoutineExercise {
@@ -121,7 +134,7 @@ interface BodyAnalysis {
   notes: string[];
 }
 
-function analyzeBody(weightKg?: number, heightCm?: number, gender?: string, age?: number): BodyAnalysis {
+function analyzeBody(weightKg?: number, heightCm?: number, gender?: string, age?: number, bodyFatPercentage?: number): BodyAnalysis {
   const notes: string[] = [];
   
   if (!weightKg || !heightCm) {
@@ -143,31 +156,81 @@ function analyzeBody(weightKg?: number, heightCm?: number, gender?: string, age?
   let restAdjustment = 0;
   let repAdjustment = 0;
 
-  if (bmi < 18.5) {
-    category = 'underweight';
-    volumeMultiplier = 0.85;
-    repAdjustment = -1;
-    notes.push('🎯 Enfoque en movimientos compuestos pesados con descansos largos');
-    notes.push('🍽️ Prioriza superávit calórico para maximizar ganancias');
-  } else if (bmi < 21) {
-    category = 'light';
-    volumeMultiplier = 1.1;
-    repAdjustment = 1;
-    restAdjustment = -10;
-    notes.push('📈 Volumen moderado-alto para maximizar estímulo de crecimiento');
-  } else if (bmi >= 27) {
-    category = 'heavy';
-    volumeMultiplier = 0.9;
-    restAdjustment = 20;
-    notes.push('⏱️ Descansos más largos para optimizar rendimiento');
-    notes.push('🔥 Considera añadir 10-15 min de cardio post-entreno');
-  } else if (bmi >= 25) {
-    category = 'overweight';
-    volumeMultiplier = 0.95;
-    restAdjustment = 10;
-    notes.push('💪 Enfoque en intensidad sobre volumen total');
+  // Use body fat percentage if available for more accurate assessment
+  if (bodyFatPercentage !== undefined) {
+    if (gender === 'male') {
+      if (bodyFatPercentage < 10) {
+        category = 'light';
+        volumeMultiplier = 1.1;
+        repAdjustment = 1;
+        restAdjustment = -10;
+        notes.push('🎯 Bajo % grasa - prioriza fuerza y volumen moderado-alto');
+      } else if (bodyFatPercentage > 25) {
+        category = 'heavy';
+        volumeMultiplier = 0.9;
+        restAdjustment = 20;
+        notes.push('⏱️ Descansos más largos para optimizar rendimiento');
+        notes.push('🔥 Considera añadir 15-20 min de cardio LISS post-entreno');
+      } else if (bodyFatPercentage > 18) {
+        category = 'overweight';
+        volumeMultiplier = 0.95;
+        restAdjustment = 10;
+        notes.push('💪 Enfoque en intensidad sobre volumen total');
+      } else if (bodyFatPercentage < 12) {
+        category = 'light';
+        volumeMultiplier = 1.05;
+        notes.push('📈 Buen nivel de grasa para maximizar ganancias');
+      } else {
+        category = 'average';
+      }
+    } else {
+      // Female body fat ranges
+      if (bodyFatPercentage < 18) {
+        category = 'light';
+        volumeMultiplier = 1.05;
+        notes.push('🎯 Excelente nivel de grasa corporal');
+      } else if (bodyFatPercentage > 35) {
+        category = 'heavy';
+        volumeMultiplier = 0.9;
+        restAdjustment = 20;
+        notes.push('🔥 Considera añadir cardio LISS post-entreno');
+      } else if (bodyFatPercentage > 28) {
+        category = 'overweight';
+        volumeMultiplier = 0.95;
+        restAdjustment = 10;
+        notes.push('💪 Enfoque en intensidad sobre volumen total');
+      } else {
+        category = 'average';
+      }
+    }
   } else {
-    category = 'average';
+    // Fall back to BMI if no body fat percentage
+    if (bmi < 18.5) {
+      category = 'underweight';
+      volumeMultiplier = 0.85;
+      repAdjustment = -1;
+      notes.push('🎯 Enfoque en movimientos compuestos pesados con descansos largos');
+      notes.push('🍽️ Prioriza superávit calórico para maximizar ganancias');
+    } else if (bmi < 21) {
+      category = 'light';
+      volumeMultiplier = 1.1;
+      repAdjustment = 1;
+      restAdjustment = -10;
+      notes.push('📈 Volumen moderado-alto para maximizar estímulo de crecimiento');
+    } else if (bmi >= 27) {
+      category = 'heavy';
+      volumeMultiplier = 0.9;
+      restAdjustment = 20;
+      notes.push('⏱️ Descansos más largos para optimizar rendimiento');
+      notes.push('🔥 Considera añadir 10-15 min de cardio post-entreno');
+    } else if (bmi >= 25) {
+      category = 'overweight';
+      volumeMultiplier = 0.95;
+      restAdjustment = 10;
+      notes.push('💪 Enfoque en intensidad sobre volumen total');
+    } else {
+      category = 'average';
+    }
   }
 
   // Age adjustments
@@ -240,6 +303,103 @@ function analyzeFatigue(externalActivities: WeeklyExternalActivities): FatigueAn
   return { muscleLoadByDay, totalCardioLoad, blockedDays, recommendations };
 }
 
+// ============= Template-Based Split Selection =============
+
+export interface TemplateConfig {
+  name: string;
+  description: string;
+  minDays: number;
+  maxDays: number;
+  splitType: RoutineRecommendation['splitType'];
+  getDays: (availableDays: number) => string[];
+}
+
+export const ROUTINE_TEMPLATES: Record<RoutineTemplate, TemplateConfig> = {
+  auto: {
+    name: 'Auto',
+    description: 'Selección automática basada en tu perfil',
+    minDays: 2,
+    maxDays: 7,
+    splitType: 'custom',
+    getDays: () => [], // Will be handled by selectOptimalSplit
+  },
+  ppl: {
+    name: 'Push/Pull/Legs',
+    description: 'Clásico PPL de 3 días',
+    minDays: 3,
+    maxDays: 3,
+    splitType: 'push_pull_legs',
+    getDays: () => ['Push', 'Pull', 'Piernas'],
+  },
+  ppl_6: {
+    name: 'PPL x2',
+    description: 'Push/Pull/Legs doble - 6 días',
+    minDays: 6,
+    maxDays: 6,
+    splitType: 'push_pull_legs',
+    getDays: () => ['Push', 'Pull', 'Piernas', 'Push 2', 'Pull 2', 'Piernas 2'],
+  },
+  upper_lower: {
+    name: 'Torso/Pierna',
+    description: 'Upper/Lower split',
+    minDays: 4,
+    maxDays: 4,
+    splitType: 'upper_lower',
+    getDays: () => ['Upper A', 'Lower A', 'Upper B', 'Lower B'],
+  },
+  upper_lower_ppl: {
+    name: 'Upper/Lower + PPL',
+    description: 'Híbrido de 5 días',
+    minDays: 5,
+    maxDays: 5,
+    splitType: 'custom',
+    getDays: () => ['Upper', 'Lower', 'Push', 'Pull', 'Piernas'],
+  },
+  full_body: {
+    name: 'Full Body',
+    description: 'Cuerpo completo 3x semana',
+    minDays: 3,
+    maxDays: 3,
+    splitType: 'full_body',
+    getDays: () => ['Full Body A', 'Full Body B', 'Full Body C'],
+  },
+  bro_split: {
+    name: 'Bro Split',
+    description: 'Clásico de 5 días por grupo muscular',
+    minDays: 5,
+    maxDays: 5,
+    splitType: 'bro_split',
+    getDays: () => ['Pecho', 'Espalda', 'Hombros', 'Piernas', 'Brazos'],
+  },
+  arnold: {
+    name: 'Arnold Split',
+    description: 'Split de Arnold Schwarzenegger',
+    minDays: 6,
+    maxDays: 6,
+    splitType: 'custom',
+    getDays: () => ['Pecho/Espalda', 'Hombros/Brazos', 'Piernas', 'Pecho/Espalda 2', 'Hombros/Brazos 2', 'Piernas 2'],
+  },
+  phat: {
+    name: 'PHAT',
+    description: 'Power Hypertrophy Adaptive Training',
+    minDays: 5,
+    maxDays: 5,
+    splitType: 'custom',
+    getDays: () => ['Upper Power', 'Lower Power', 'Espalda/Hombros', 'Piernas Hiper', 'Pecho/Brazos'],
+  },
+};
+
+function selectTemplateBasedSplit(
+  template: RoutineTemplate,
+  availableGymDays: number
+): { splitType: RoutineRecommendation['splitType']; routineDays: string[] } {
+  const config = ROUTINE_TEMPLATES[template];
+  return {
+    splitType: config.splitType,
+    routineDays: config.getDays(availableGymDays),
+  };
+}
+
 // ============= Smart Split Selection =============
 
 function selectOptimalSplit(
@@ -285,6 +445,7 @@ function selectOptimalSplit(
 
   return { splitType: 'full_body', routineDays: ['Full Body A', 'Full Body B'] };
 }
+
 
 // ============= Exercise Selection & Adjustment =============
 
@@ -358,27 +519,75 @@ function selectExercisesForDay(
   reduceMuscles: string[]
 ): RoutineExercise[] {
   let templates: ExerciseTemplate[] = [];
+  const dayLower = dayType.toLowerCase();
   
   // Select base templates by day type
-  if (dayType.toLowerCase().includes('push')) {
+  if (dayLower.includes('push')) {
     templates = [...PUSH_EXERCISES];
-  } else if (dayType.toLowerCase().includes('pull')) {
+  } else if (dayLower.includes('pull')) {
     templates = [...PULL_EXERCISES];
-  } else if (dayType.toLowerCase().includes('pierna') || dayType.toLowerCase().includes('lower') || dayType.toLowerCase().includes('leg')) {
+  } else if (dayLower.includes('pierna') || dayLower.includes('lower') || dayLower.includes('leg')) {
     templates = [...LEG_EXERCISES];
-  } else if (dayType.toLowerCase().includes('upper')) {
+  } else if (dayLower.includes('upper') && dayLower.includes('power')) {
+    // PHAT Upper Power - heavy compounds
+    templates = [
+      ...PUSH_EXERCISES.filter(e => e.isCompound),
+      ...PULL_EXERCISES.filter(e => e.isCompound),
+    ].map(e => ({ ...e, baseSets: e.baseSets + 1, baseRepsMin: 3, baseRepsMax: 5, baseRest: 180 }));
+  } else if (dayLower.includes('lower') && dayLower.includes('power')) {
+    // PHAT Lower Power - heavy compounds
+    templates = [...LEG_EXERCISES.filter(e => e.isCompound)]
+      .map(e => ({ ...e, baseSets: e.baseSets + 1, baseRepsMin: 3, baseRepsMax: 5, baseRest: 180 }));
+  } else if (dayLower.includes('upper')) {
     // Mix of push and pull for upper
     templates = [
       ...PUSH_EXERCISES.filter(e => e.priority <= 3),
       ...PULL_EXERCISES.filter(e => e.priority <= 3),
     ].sort((a, b) => a.priority - b.priority);
-  } else if (dayType.toLowerCase().includes('full')) {
+  } else if (dayLower.includes('full')) {
     // Full body = compound focus
     templates = [
       ...LEG_EXERCISES.filter(e => e.priority <= 2),
       ...PUSH_EXERCISES.filter(e => e.priority <= 2),
       ...PULL_EXERCISES.filter(e => e.priority <= 2),
     ].sort((a, b) => a.priority - b.priority);
+  } else if (dayLower.includes('pecho') && dayLower.includes('espalda')) {
+    // Arnold split - Chest/Back
+    templates = [
+      ...PUSH_EXERCISES.filter(e => e.muscleGroup === 'chest'),
+      ...PULL_EXERCISES.filter(e => e.muscleGroup === 'back'),
+    ];
+  } else if (dayLower.includes('hombros') && dayLower.includes('brazos')) {
+    // Arnold split - Shoulders/Arms
+    templates = [
+      ...PUSH_EXERCISES.filter(e => e.muscleGroup === 'shoulders' || e.muscleGroup === 'triceps'),
+      ...PULL_EXERCISES.filter(e => e.muscleGroup === 'biceps'),
+    ];
+  } else if (dayLower.includes('pecho')) {
+    // Bro split - Chest day
+    templates = [...PUSH_EXERCISES.filter(e => e.muscleGroup === 'chest')];
+    // Add some triceps work
+    templates.push(...PUSH_EXERCISES.filter(e => e.muscleGroup === 'triceps').slice(0, 2));
+  } else if (dayLower.includes('espalda')) {
+    // Bro split - Back day
+    templates = [...PULL_EXERCISES.filter(e => e.muscleGroup === 'back')];
+    // Add some biceps work
+    templates.push(...PULL_EXERCISES.filter(e => e.muscleGroup === 'biceps').slice(0, 2));
+  } else if (dayLower.includes('hombros')) {
+    // Bro split - Shoulders day
+    templates = [...PUSH_EXERCISES.filter(e => e.muscleGroup === 'shoulders')];
+    // Add rear delts
+    templates.push(...PULL_EXERCISES.filter(e => e.name.includes('Face')));
+  } else if (dayLower.includes('brazos')) {
+    // Bro split - Arms day
+    templates = [
+      ...PUSH_EXERCISES.filter(e => e.muscleGroup === 'triceps'),
+      ...PULL_EXERCISES.filter(e => e.muscleGroup === 'biceps'),
+    ];
+  } else if (dayLower.includes('hiper')) {
+    // PHAT Hypertrophy day - higher reps
+    templates = [...LEG_EXERCISES]
+      .map(e => ({ ...e, baseRepsMin: 10, baseRepsMax: 15, baseRest: 60 }));
   }
 
   // Filter out avoided muscles
@@ -416,11 +625,13 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
     weightKg,
     heightCm,
     gender,
-    age
+    age,
+    bodyFatPercentage,
+    template = 'auto'
   } = input;
 
-  // Analyze user body composition
-  const bodyAnalysis = analyzeBody(weightKg, heightCm, gender, age);
+  // Analyze user body composition (now includes body fat %)
+  const bodyAnalysis = analyzeBody(weightKg, heightCm, gender, age, bodyFatPercentage);
   
   // Analyze external activities
   const fatigueAnalysis = analyzeFatigue(externalActivities);
@@ -432,13 +643,24 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
 
   const hasSignificantExternalLoad = Object.keys(externalActivities).length >= 2;
 
-  // Select optimal split
-  const { splitType, routineDays } = selectOptimalSplit(
-    availableGymDays.length,
-    hasSignificantExternalLoad,
-    experienceLevel,
-    fitnessGoal
-  );
+  // Select split based on template or auto-select
+  let splitType: RoutineRecommendation['splitType'];
+  let routineDays: string[];
+  
+  if (template !== 'auto') {
+    const templateResult = selectTemplateBasedSplit(template, availableGymDays.length);
+    splitType = templateResult.splitType;
+    routineDays = templateResult.routineDays;
+  } else {
+    const autoResult = selectOptimalSplit(
+      availableGymDays.length,
+      hasSignificantExternalLoad,
+      experienceLevel,
+      fitnessGoal
+    );
+    splitType = autoResult.splitType;
+    routineDays = autoResult.routineDays;
+  }
 
   // Create weekly schedule - assign routine days to specific weekdays
   const weeklySchedule: { [day: string]: string } = {};
