@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dumbbell, Play, Plus, Loader2, ChevronRight, Trash2, Calendar, Clock, PencilLine, Check, X, Sparkles, CalendarDays, Flame, Crown } from 'lucide-react';
 import PreWorkoutModal from '@/components/workout/PreWorkoutModal';
@@ -19,7 +19,7 @@ import {
   useDeleteWorkoutPlanExercise,
   useDeleteWorkoutPlan,
 } from '@/hooks/useWorkouts';
-import { useProfile, useUserSchedule } from '@/hooks/useProfile';
+import { useProfile, useUserSchedule, useUpdateUserSchedule } from '@/hooks/useProfile';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { routineDecision, ROUTINE_TEMPLATES, RoutineTemplate } from '@/services/decision-engine/routine-decision';
 import { useToast } from '@/hooks/use-toast';
@@ -69,6 +69,7 @@ const TrainingPage: React.FC = () => {
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<RoutineTemplate>('auto');
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [selectedTrainingDays, setSelectedTrainingDays] = useState<string[]>([]);
   
   // Pre-workout modal state
   const [preWorkoutDayId, setPreWorkoutDayId] = useState<string | null>(null);
@@ -82,6 +83,7 @@ const TrainingPage: React.FC = () => {
   const { data: sessions } = useWorkoutSessions();
   const { data: profile } = useProfile();
   const { data: schedule } = useUserSchedule();
+  const updateSchedule = useUpdateUserSchedule();
   const createPlan = useCreateWorkoutPlan();
   const createDay = useCreateWorkoutDay();
   const addExercise = useAddExerciseToPlan();
@@ -91,6 +93,27 @@ const TrainingPage: React.FC = () => {
   const deletePlanExercise = useDeleteWorkoutPlanExercise();
   const deletePlan = useDeleteWorkoutPlan();
   const { toast } = useToast();
+
+  // Initialize selected days when modal opens or schedule changes
+  useEffect(() => {
+    if (isNewRoutineOpen && schedule?.preferred_workout_days) {
+      setSelectedTrainingDays(schedule.preferred_workout_days);
+    }
+  }, [isNewRoutineOpen, schedule?.preferred_workout_days]);
+
+  // Get template requirements
+  const templateConfig = ROUTINE_TEMPLATES[selectedTemplate];
+  const requiredDays = templateConfig?.minDays || 3;
+  const maxDays = templateConfig?.maxDays || 6;
+  const daysMatch = selectedTrainingDays.length >= requiredDays && selectedTrainingDays.length <= maxDays;
+
+  const toggleTrainingDay = (day: string) => {
+    setSelectedTrainingDays(prev => 
+      prev.includes(day) 
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    );
+  };
 
   const handleStartEmptyWorkout = async () => {
     try {
@@ -148,14 +171,11 @@ const TrainingPage: React.FC = () => {
       return;
     }
 
-    // Check if template requires specific number of days
-    const templateConfig = ROUTINE_TEMPLATES[template];
-    const userDays = schedule?.preferred_workout_days?.length || schedule?.workout_days_per_week || 4;
-    
-    if (template !== 'auto' && (userDays < templateConfig.minDays || userDays > templateConfig.maxDays)) {
+    // Validate days match template requirements
+    if (!daysMatch) {
       toast({ 
-        title: 'Días insuficientes', 
-        description: `${templateConfig.name} requiere ${templateConfig.minDays === templateConfig.maxDays ? templateConfig.minDays : `${templateConfig.minDays}-${templateConfig.maxDays}`} días. Tienes ${userDays} configurados.`,
+        title: 'Selecciona los días correctos', 
+        description: `${templateConfig.name} requiere ${requiredDays === maxDays ? requiredDays : `${requiredDays}-${maxDays}`} días`,
         variant: 'destructive' 
       });
       return;
@@ -163,7 +183,12 @@ const TrainingPage: React.FC = () => {
 
     setIsGenerating(true);
     try {
-      const daysPerWeek = template !== 'auto' ? templateConfig.minDays : (schedule?.preferred_workout_days?.length || schedule?.workout_days_per_week || 4);
+      // Save selected training days to user schedule
+      await updateSchedule.mutateAsync({
+        preferred_workout_days: selectedTrainingDays,
+        workout_days_per_week: selectedTrainingDays.length
+      });
+
       const externalActivities = schedule?.external_activities && typeof schedule.external_activities === 'object' && !Array.isArray(schedule.external_activities) 
         ? schedule.external_activities as any
         : {};
@@ -179,9 +204,9 @@ const TrainingPage: React.FC = () => {
       const recommendation = routineDecision({
         fitnessGoal: (profile.fitness_goal as 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance') || 'muscle_gain',
         experienceLevel: (profile.experience_level as 'beginner' | 'intermediate' | 'advanced') || 'intermediate',
-        daysPerWeek,
+        daysPerWeek: selectedTrainingDays.length,
         externalActivities,
-        preferredGymDays: schedule?.preferred_workout_days || [],
+        preferredGymDays: selectedTrainingDays,
         weightKg: profile.weight_kg || undefined,
         heightCm: profile.height_cm || undefined,
         gender: profile.gender || undefined,
@@ -195,7 +220,7 @@ const TrainingPage: React.FC = () => {
         name: recommendation.name,
         description: recommendation.description,
         split_type: recommendation.splitType,
-        days_per_week: daysPerWeek,
+        days_per_week: selectedTrainingDays.length,
       });
 
       // Create days with exercises and assigned weekdays
@@ -837,12 +862,54 @@ const TrainingPage: React.FC = () => {
               </div>
             </div>
 
+            {/* Day Selector */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-foreground">Días de entrenamiento:</p>
+                <span className={cn(
+                  "text-xs font-medium px-2 py-1 rounded-full",
+                  daysMatch 
+                    ? "bg-green-500/20 text-green-500" 
+                    : "bg-yellow-500/20 text-yellow-500"
+                )}>
+                  {selectedTrainingDays.length}/{requiredDays === maxDays ? requiredDays : `${requiredDays}-${maxDays}`}
+                </span>
+              </div>
+              
+              <div className="flex gap-2 justify-center">
+                {WEEKDAYS.map(day => (
+                  <button
+                    key={day.id}
+                    onClick={() => toggleTrainingDay(day.id)}
+                    className={cn(
+                      "w-10 h-10 rounded-lg font-medium text-sm transition-all",
+                      selectedTrainingDays.includes(day.id)
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                    )}
+                    title={day.name}
+                  >
+                    {day.short}
+                  </button>
+                ))}
+              </div>
+
+              {!daysMatch && (
+                <p className="text-xs text-center text-yellow-500">
+                  {selectedTrainingDays.length < requiredDays 
+                    ? `Selecciona ${requiredDays - selectedTrainingDays.length} día(s) más`
+                    : `Deselecciona ${selectedTrainingDays.length - maxDays} día(s)`
+                  }
+                </p>
+              )}
+            </div>
+
             {/* Generate personalized routine button */}
             <Button 
               onClick={() => handleGenerateRoutine(selectedTemplate)}
               variant="outline"
               className="w-full h-14 border-primary/50 hover:bg-primary/10 text-foreground"
-              disabled={isGenerating || !profile}
+              disabled={isGenerating || !profile || !daysMatch}
             >
               {isGenerating ? (
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
