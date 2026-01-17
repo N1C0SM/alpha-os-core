@@ -611,15 +611,24 @@ const ActiveWorkoutPage: React.FC = () => {
                           isWarmup && "bg-orange-500/10"
                         )}
                       >
-                        {/* Set number */}
-                        <div className="flex items-center justify-center">
+                        {/* Set number - tap to mark as max/PR */}
+                        <button
+                          type="button"
+                          onClick={() => !isWarmup && handleToggleMaxSet(exerciseIdx, setIdx)}
+                          className={cn(
+                            "flex items-center justify-center h-7 w-7 rounded-md mx-auto",
+                            set.isMaxSet && "bg-yellow-500 text-black",
+                            !isWarmup && "active:bg-yellow-500/50"
+                          )}
+                        >
                           <span className={cn(
                             "text-sm font-bold",
-                            isWarmup ? "text-orange-500" : "text-foreground"
+                            isWarmup ? "text-orange-500" : 
+                            set.isMaxSet ? "text-black" : "text-foreground"
                           )}>
-                            {isWarmup ? 'W' : workingSetNumber}
+                            {isWarmup ? 'W' : set.isMaxSet ? '★' : workingSetNumber}
                           </span>
-                        </div>
+                        </button>
                         
                         {/* Previous - tap to copy */}
                         <button
