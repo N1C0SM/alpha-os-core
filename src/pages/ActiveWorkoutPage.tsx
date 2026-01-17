@@ -682,6 +682,14 @@ const ActiveWorkoutPage: React.FC = () => {
                     <Plus className="w-4 h-4" />
                     Serie
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMachineOccupied(exerciseIdx)}
+                    className="h-9 px-3 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 text-sm flex items-center justify-center gap-1.5"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Ocupada
+                  </button>
                 </div>
               </div>
             ))}
