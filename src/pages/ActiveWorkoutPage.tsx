@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, TrendingUp, Flame, ArrowUp, RefreshCw, Crown } from 'lucide-react';
+import { Plus, X, Check, Trash2, Clock, Dumbbell, ChevronDown, ChevronUp, History, TrendingUp, Flame, ArrowUp, RefreshCw, Crown, Star, Zap, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -49,7 +49,9 @@ interface SetData {
   reps: string;
   completed: boolean;
   isWarmup?: boolean;
-  feeling?: 'easy' | 'correct' | 'hard' | null; // Per-set feedback (optional)
+  feeling?: 'easy' | 'correct' | 'hard' | null;
+  isMaxSet?: boolean; // Mark as max set for next session
+  setType?: 'normal' | 'superset' | 'dropset';
 }
 
 const ActiveWorkoutPage: React.FC = () => {
@@ -238,6 +240,38 @@ const ActiveWorkoutPage: React.FC = () => {
     });
   };
 
+  // Handle per-set feeling
+  const handleSetFeeling = (exerciseIdx: number, setIdx: number, feeling: 'easy' | 'correct' | 'hard') => {
+    setExercises(prev => {
+      const updated = [...prev];
+      updated[exerciseIdx].sets[setIdx].feeling = feeling;
+      return updated;
+    });
+  };
+
+  // Toggle max set marker
+  const handleToggleMaxSet = (exerciseIdx: number, setIdx: number) => {
+    setExercises(prev => {
+      const updated = [...prev];
+      // Clear other max markers in this exercise
+      updated[exerciseIdx].sets = updated[exerciseIdx].sets.map((s, i) => ({
+        ...s,
+        isMaxSet: i === setIdx ? !s.isMaxSet : false,
+      }));
+      return updated;
+    });
+  };
+
+  // Set set type (normal, superset, dropset)
+  const handleSetType = (exerciseIdx: number, setIdx: number, type: 'normal' | 'superset' | 'dropset') => {
+    setExercises(prev => {
+      const updated = [...prev];
+      updated[exerciseIdx].sets[setIdx].setType = 
+        updated[exerciseIdx].sets[setIdx].setType === type ? 'normal' : type;
+      return updated;
+    });
+  };
+
   const handleToggleExpand = (exerciseIdx: number) => {
     setExercises(prev => {
       const updated = [...prev];
@@ -363,7 +397,10 @@ const ActiveWorkoutPage: React.FC = () => {
       for (const exercise of exercises) {
         let bestWeight = 0;
         let bestReps = 0;
+        let maxSetWeight = 0;
+        let maxSetReps = 0;
         let hasCompletedSets = false;
+        let overallFeeling: 'easy' | 'correct' | 'hard' | null = null;
 
         for (let i = 0; i < exercise.sets.length; i++) {
           const set = exercise.sets[i];
@@ -372,10 +409,22 @@ const ActiveWorkoutPage: React.FC = () => {
             const weight = set.weight ? parseFloat(set.weight) : 0;
             const reps = set.reps ? parseInt(set.reps) : 0;
             
+            // If user marked this as max set, prioritize it
+            if (set.isMaxSet) {
+              maxSetWeight = weight;
+              maxSetReps = reps;
+            }
+            
             // Track best performance
             if (weight > bestWeight || (weight === bestWeight && reps > bestReps)) {
               bestWeight = weight;
               bestReps = reps;
+            }
+
+            // Use set-level feeling if available, otherwise exercise-level
+            const setFeeling = set.feeling || exercise.feeling;
+            if (setFeeling && !overallFeeling) {
+              overallFeeling = setFeeling;
             }
 
             await logExercise.mutateAsync({
@@ -384,19 +433,24 @@ const ActiveWorkoutPage: React.FC = () => {
               set_number: i + 1,
               weight_kg: weight || undefined,
               reps_completed: reps || undefined,
-              feeling: exercise.feeling || undefined,
+              feeling: setFeeling || undefined,
             });
           }
         }
 
-        // Update exercise max weight if we have feedback
-        if (hasCompletedSets && exercise.feeling && bestWeight > 0) {
+        // Use max set if marked, otherwise use best performance
+        const finalWeight = maxSetWeight > 0 ? maxSetWeight : bestWeight;
+        const finalReps = maxSetWeight > 0 ? maxSetReps : bestReps;
+        const finalFeeling = overallFeeling || exercise.feeling;
+
+        // Update exercise max weight if we have performance data
+        if (hasCompletedSets && finalWeight > 0) {
           try {
             await updateMaxWeight.mutateAsync({
               exerciseId: exercise.exerciseId,
-              weightKg: bestWeight,
-              reps: bestReps,
-              feeling: exercise.feeling,
+              weightKg: finalWeight,
+              reps: finalReps,
+              feeling: finalFeeling || 'correct',
             });
           } catch (err) {
             console.error('Error updating max weight:', err);
@@ -573,62 +627,149 @@ const ActiveWorkoutPage: React.FC = () => {
                     {/* Sets */}
                     {exercise.sets.map((set, setIdx) => {
                       const lastSet = exerciseHistory?.[exercise.exerciseId]?.sets?.[setIdx];
-                      const isWarmup = (set as any).isWarmup;
+                      const isWarmup = set.isWarmup;
+                      const workingSetNumber = setIdx + 1 - exercise.sets.filter((s, i) => i < setIdx && s.isWarmup).length;
+                      
                       return (
-                        <div 
-                          key={set.id} 
-                          className={cn(
-                            "grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center",
-                            set.completed && "opacity-60",
-                            isWarmup && "bg-orange-500/10 rounded-lg py-1 -mx-1 px-1"
+                        <div key={set.id} className="space-y-1">
+                          {/* Set type indicator */}
+                          {set.setType && set.setType !== 'normal' && (
+                            <div className={cn(
+                              "text-[10px] font-medium px-2 py-0.5 rounded-full inline-flex items-center gap-1 mb-1",
+                              set.setType === 'superset' && "bg-purple-500/20 text-purple-500",
+                              set.setType === 'dropset' && "bg-amber-500/20 text-amber-500"
+                            )}>
+                              {set.setType === 'superset' && <><Layers className="w-3 h-3" /> Superset</>}
+                              {set.setType === 'dropset' && <><Zap className="w-3 h-3" /> Dropset</>}
+                            </div>
                           )}
-                        >
-                          <span className={cn(
-                            "text-sm font-medium text-center",
-                            isWarmup ? "text-orange-500" : "text-foreground"
-                          )}>
-                            {isWarmup ? (
-                              <Flame className="w-4 h-4 mx-auto" />
-                            ) : (
-                              setIdx + 1 - exercise.sets.filter((s, i) => i < setIdx && (s as any).isWarmup).length
-                            )}
-                          </span>
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder={isWarmup ? set.weight : (lastSet?.weight_kg?.toString() || "0")}
-                            value={isWarmup ? set.weight : set.weight}
-                            onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
+                          
+                          <div 
                             className={cn(
-                              "h-10 text-center bg-secondary border-border",
-                              isWarmup && "bg-orange-500/5"
+                              "grid grid-cols-[40px_1fr_1fr_40px] gap-2 items-center",
+                              set.completed && "opacity-60",
+                              isWarmup && "bg-orange-500/10 rounded-lg py-1 -mx-1 px-1",
+                              set.isMaxSet && "ring-2 ring-yellow-500/50 rounded-lg"
                             )}
-                            disabled={isWarmup}
-                          />
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder={isWarmup ? set.reps : (lastSet?.reps_completed?.toString() || "0")}
-                            value={isWarmup ? set.reps : set.reps}
-                            onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
-                            className={cn(
-                              "h-10 text-center bg-secondary border-border",
-                              isWarmup && "bg-orange-500/5"
-                            )}
-                            disabled={isWarmup}
-                          />
-                          <Button
-                            size="icon"
-                            variant={set.completed ? "default" : "outline"}
-                            className={cn(
-                              "h-10 w-10",
-                              set.completed && !isWarmup && "bg-primary text-primary-foreground",
-                              set.completed && isWarmup && "bg-orange-500 text-white"
-                            )}
-                            onClick={() => handleToggleSetComplete(exerciseIdx, setIdx)}
                           >
-                            <Check className="w-4 h-4" />
-                          </Button>
+                            <span className={cn(
+                              "text-sm font-medium text-center relative",
+                              isWarmup ? "text-orange-500" : "text-foreground"
+                            )}>
+                              {isWarmup ? (
+                                <Flame className="w-4 h-4 mx-auto" />
+                              ) : (
+                                <>
+                                  {workingSetNumber}
+                                  {set.isMaxSet && (
+                                    <Star className="w-3 h-3 text-yellow-500 absolute -top-1 -right-1 fill-yellow-500" />
+                                  )}
+                                </>
+                              )}
+                            </span>
+                            <Input
+                              type="number"
+                              inputMode="decimal"
+                              placeholder={isWarmup ? set.weight : (lastSet?.weight_kg?.toString() || "0")}
+                              value={isWarmup ? set.weight : set.weight}
+                              onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
+                              className={cn(
+                                "h-10 text-center bg-secondary border-border",
+                                isWarmup && "bg-orange-500/5"
+                              )}
+                              disabled={isWarmup}
+                            />
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              placeholder={isWarmup ? set.reps : (lastSet?.reps_completed?.toString() || "0")}
+                              value={isWarmup ? set.reps : set.reps}
+                              onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
+                              className={cn(
+                                "h-10 text-center bg-secondary border-border",
+                                isWarmup && "bg-orange-500/5"
+                              )}
+                              disabled={isWarmup}
+                            />
+                            <Button
+                              size="icon"
+                              variant={set.completed ? "default" : "outline"}
+                              className={cn(
+                                "h-10 w-10",
+                                set.completed && !isWarmup && "bg-primary text-primary-foreground",
+                                set.completed && isWarmup && "bg-orange-500 text-white"
+                              )}
+                              onClick={() => handleToggleSetComplete(exerciseIdx, setIdx)}
+                            >
+                              <Check className="w-4 h-4" />
+                            </Button>
+                          </div>
+
+                          {/* Per-set feedback + actions (only for working sets) */}
+                          {!isWarmup && set.completed && (
+                            <div className="flex items-center gap-1 pl-10 mt-1">
+                              {/* Feeling buttons - compact */}
+                              <div className="flex gap-0.5 flex-1">
+                                {(['easy', 'correct', 'hard'] as const).map((f) => (
+                                  <button
+                                    key={f}
+                                    onClick={() => handleSetFeeling(exerciseIdx, setIdx, f)}
+                                    className={cn(
+                                      "flex-1 h-6 text-[10px] rounded border transition-all",
+                                      set.feeling === f 
+                                        ? f === 'easy' ? 'bg-green-500/20 border-green-500 text-green-600' 
+                                          : f === 'correct' ? 'bg-blue-500/20 border-blue-500 text-blue-600'
+                                          : 'bg-red-500/20 border-red-500 text-red-600'
+                                        : 'bg-secondary/50 border-border text-muted-foreground'
+                                    )}
+                                  >
+                                    {f === 'easy' ? '👍' : f === 'correct' ? '✓' : '💪'}
+                                  </button>
+                                ))}
+                              </div>
+                              
+                              {/* Max set toggle */}
+                              <button
+                                onClick={() => handleToggleMaxSet(exerciseIdx, setIdx)}
+                                className={cn(
+                                  "h-6 px-2 text-[10px] rounded border flex items-center gap-1",
+                                  set.isMaxSet 
+                                    ? "bg-yellow-500/20 border-yellow-500 text-yellow-600"
+                                    : "bg-secondary/50 border-border text-muted-foreground"
+                                )}
+                                title="Marcar como máximo"
+                              >
+                                <Star className={cn("w-3 h-3", set.isMaxSet && "fill-yellow-500")} />
+                                Max
+                              </button>
+
+                              {/* Superset/Dropset toggles */}
+                              <button
+                                onClick={() => handleSetType(exerciseIdx, setIdx, 'superset')}
+                                className={cn(
+                                  "h-6 w-6 text-[10px] rounded border flex items-center justify-center",
+                                  set.setType === 'superset'
+                                    ? "bg-purple-500/20 border-purple-500 text-purple-600"
+                                    : "bg-secondary/50 border-border text-muted-foreground"
+                                )}
+                                title="Superset"
+                              >
+                                <Layers className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => handleSetType(exerciseIdx, setIdx, 'dropset')}
+                                className={cn(
+                                  "h-6 w-6 text-[10px] rounded border flex items-center justify-center",
+                                  set.setType === 'dropset'
+                                    ? "bg-amber-500/20 border-amber-500 text-amber-600"
+                                    : "bg-secondary/50 border-border text-muted-foreground"
+                                )}
+                                title="Dropset"
+                              >
+                                <Zap className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
