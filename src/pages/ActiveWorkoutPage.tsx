@@ -250,11 +250,19 @@ const ActiveWorkoutPage: React.FC = () => {
 
   const handleToggleSetComplete = (exerciseIdx: number, setIdx: number) => {
     setExercises(prev => {
-      const updated = [...prev];
-      const wasCompleted = updated[exerciseIdx].sets[setIdx].completed;
-      updated[exerciseIdx].sets[setIdx].completed = !wasCompleted;
+      const updated = prev.map((exercise, eIdx) => {
+        if (eIdx !== exerciseIdx) return exercise;
+        return {
+          ...exercise,
+          sets: exercise.sets.map((set, sIdx) => {
+            if (sIdx !== setIdx) return set;
+            return { ...set, completed: !set.completed };
+          }),
+        };
+      });
       
       // Auto-start rest timer when completing a set (not when uncompleting)
+      const wasCompleted = prev[exerciseIdx].sets[setIdx].completed;
       if (!wasCompleted) {
         setRestTimerKey(k => k + 1);
       }
