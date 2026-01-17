@@ -954,20 +954,9 @@ const TrainingPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Day Selector */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-foreground">Días de entrenamiento:</p>
-                <span className={cn(
-                  "text-xs font-medium px-2 py-1 rounded-full",
-                  daysMatch 
-                    ? "bg-green-500/20 text-green-500" 
-                    : "bg-yellow-500/20 text-yellow-500"
-                )}>
-                  {selectedTrainingDays.length}/{requiredDays === maxDays ? requiredDays : `${requiredDays}-${maxDays}`}
-                </span>
-              </div>
-              
+            {/* Auto-selected Days Display */}
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-foreground">Días seleccionados automáticamente:</p>
               <div className="flex gap-2 justify-center">
                 {WEEKDAYS.map(day => {
                   const isBlocked = blockedDays.includes(day.id);
@@ -975,56 +964,36 @@ const TrainingPage: React.FC = () => {
                   const isSelected = selectedTrainingDays.includes(day.id);
                   
                   return (
-                    <button
+                    <div
                       key={day.id}
-                      onClick={() => !isBlocked && toggleTrainingDay(day.id)}
-                      disabled={isBlocked}
                       className={cn(
-                        "w-10 h-10 rounded-lg font-medium text-sm transition-all relative",
+                        "w-9 h-9 rounded-lg font-medium text-xs flex items-center justify-center relative",
                         isBlocked
-                          ? "bg-destructive/20 text-destructive line-through cursor-not-allowed"
+                          ? "bg-destructive/20 text-destructive line-through"
                           : isSelected
                             ? hasFatigue 
                               ? "bg-yellow-500 text-yellow-950"
                               : "bg-primary text-primary-foreground"
-                            : hasFatigue
-                              ? "bg-yellow-500/20 text-yellow-600 hover:bg-yellow-500/30"
-                              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                            : "bg-secondary/50 text-muted-foreground/50"
                       )}
                       title={
                         isBlocked 
-                          ? `${day.name}: Bloqueado por actividad externa` 
+                          ? `${day.name}: Bloqueado` 
                           : hasFatigue 
-                            ? `${day.name}: Fatiga parcial (${partialFatigueDays[day.id]?.join(', ')})`
+                            ? `${day.name}: Fatiga parcial`
                             : day.name
                       }
                     >
                       {day.short}
-                      {isBlocked && (
-                        <span className="absolute -top-1 -right-1 text-[10px]">🚫</span>
-                      )}
-                      {hasFatigue && !isBlocked && (
-                        <span className="absolute -top-1 -right-1 text-[10px]">⚠️</span>
-                      )}
-                    </button>
+                      {isBlocked && <span className="absolute -top-1 -right-1 text-[8px]">🚫</span>}
+                      {hasFatigue && !isBlocked && isSelected && <span className="absolute -top-1 -right-1 text-[8px]">⚠️</span>}
+                    </div>
                   );
                 })}
               </div>
-              
-              {blockedDays.length > 0 && (
-                <p className="text-xs text-center text-muted-foreground">
-                  🚫 = día bloqueado por actividad externa &nbsp; ⚠️ = fatiga muscular
-                </p>
-              )}
-
-              {!daysMatch && (
-                <p className="text-xs text-center text-yellow-500">
-                  {selectedTrainingDays.length < requiredDays 
-                    ? `Selecciona ${requiredDays - selectedTrainingDays.length} día(s) más`
-                    : `Deselecciona ${selectedTrainingDays.length - maxDays} día(s)`
-                  }
-                </p>
-              )}
+              <p className="text-xs text-center text-muted-foreground">
+                Basado en tu horario y recuperación muscular
+              </p>
             </div>
 
             {/* Generate personalized routine button */}
