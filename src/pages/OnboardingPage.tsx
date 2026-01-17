@@ -64,7 +64,6 @@ interface OnboardingData {
   // Step 6: Food preferences
   foodPreference: FoodPreference;
   likedFoods: string;
-  dislikedFoods: string;
   allergies: string;
   
   // Step 7: Schedule
@@ -94,7 +93,6 @@ const INITIAL_DATA: OnboardingData = {
   experienceLevel: 'beginner',
   foodPreference: 'normal',
   likedFoods: '',
-  dislikedFoods: '',
   allergies: '',
   workoutDaysPerWeek: 4,
   workoutDurationMinutes: 60,
@@ -186,7 +184,6 @@ const OnboardingPage: React.FC = () => {
       await createFoodPreferences.mutateAsync({
         preference: data.foodPreference,
         liked_foods: data.likedFoods,
-        disliked_foods: data.dislikedFoods,
         allergies: data.allergies,
       });
 
@@ -791,24 +788,16 @@ const StepFoodPreferences: React.FC<StepProps> = ({ data, updateData }) => {
 
       <div className="space-y-4">
         <div>
-          <Label className="text-foreground">Alimentos que te gustan (opcional)</Label>
+          <Label className="text-foreground">Alimentos que te gustan</Label>
+          <p className="text-xs text-muted-foreground mb-2">
+            El sistema priorizará estos alimentos. El resto se evitará automáticamente.
+          </p>
           <Textarea
-            placeholder="Pollo, arroz, huevos, brócoli..."
+            placeholder="Pollo, arroz, huevos, brócoli, pasta, carne..."
             value={data.likedFoods}
             onChange={e => updateData({ likedFoods: e.target.value })}
-            className="bg-secondary border-border mt-2"
-            rows={2}
-          />
-        </div>
-
-        <div>
-          <Label className="text-foreground">Alimentos que NO te gustan (opcional)</Label>
-          <Textarea
-            placeholder="Pescado, champiñones..."
-            value={data.dislikedFoods}
-            onChange={e => updateData({ dislikedFoods: e.target.value })}
-            className="bg-secondary border-border mt-2"
-            rows={2}
+            className="bg-secondary border-border"
+            rows={3}
           />
         </div>
 
