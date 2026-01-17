@@ -363,6 +363,27 @@ export const useUpdateWorkoutPlanExercise = () => {
   });
 };
 
+export const useUpdateWorkoutPlan = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ planId, name }: { planId: string; name: string }) => {
+      const { data, error } = await supabase
+        .from('workout_plans')
+        .update({ name })
+        .eq('id', planId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workout_plans'] });
+    },
+  });
+};
+
 export const useDeleteWorkoutPlan = () => {
   const queryClient = useQueryClient();
 

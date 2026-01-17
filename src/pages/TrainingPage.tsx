@@ -18,6 +18,7 @@ import {
   useUpdateWorkoutDay,
   useDeleteWorkoutPlanExercise,
   useDeleteWorkoutPlan,
+  useUpdateWorkoutPlan,
   useUpdateWorkoutPlanExercise,
 } from '@/hooks/useWorkouts';
 import { useProfile, useUserSchedule, useUpdateUserSchedule } from '@/hooks/useProfile';
@@ -65,6 +66,8 @@ const TrainingPage: React.FC = () => {
 
   const [editingDayId, setEditingDayId] = useState<string | null>(null);
   const [editingDayName, setEditingDayName] = useState('');
+  const [editingRoutineName, setEditingRoutineName] = useState(false);
+  const [routineNameValue, setRoutineNameValue] = useState('');
 
   const [newRoutineName, setNewRoutineName] = useState('');
   const [newDayName, setNewDayName] = useState('');
@@ -95,6 +98,7 @@ const TrainingPage: React.FC = () => {
   const deleteDay = useDeleteWorkoutDay();
   const deletePlanExercise = useDeleteWorkoutPlanExercise();
   const deletePlan = useDeleteWorkoutPlan();
+  const updatePlan = useUpdateWorkoutPlan();
   const updatePlanExercise = useUpdateWorkoutPlanExercise();
   const { toast } = useToast();
 
@@ -519,9 +523,56 @@ const TrainingPage: React.FC = () => {
           </Button>
         </div>
         
-        <div className="mb-6 flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">{currentRoutine.name}</h1>
+        <div className="mb-6 flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {editingRoutineName ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={routineNameValue}
+                  onChange={(e) => setRoutineNameValue(e.target.value)}
+                  className="text-xl font-bold bg-secondary border-border"
+                  autoFocus
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="text-primary shrink-0"
+                  onClick={() => {
+                    if (routineNameValue.trim()) {
+                      updatePlan.mutate({ planId: currentRoutine.id, name: routineNameValue.trim() });
+                    }
+                    setEditingRoutineName(false);
+                  }}
+                  disabled={updatePlan.isPending || !routineNameValue.trim()}
+                  aria-label="Guardar nombre"
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setEditingRoutineName(false)}
+                  aria-label="Cancelar"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-foreground truncate">{currentRoutine.name}</h1>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    setRoutineNameValue(currentRoutine.name);
+                    setEditingRoutineName(true);
+                  }}
+                  aria-label="Editar nombre"
+                >
+                  <PencilLine className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
             <p className="text-sm text-muted-foreground">
               {currentRoutine.workout_plan_days?.length || 0} días de entreno
             </p>
@@ -529,7 +580,7 @@ const TrainingPage: React.FC = () => {
           <Button
             variant="ghost"
             size="icon"
-            className="text-destructive"
+            className="text-destructive shrink-0"
             onClick={() => handleDeleteRoutine(currentRoutine.id)}
             disabled={deletePlan.isPending}
             aria-label="Eliminar rutina"
