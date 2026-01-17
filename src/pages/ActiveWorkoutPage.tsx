@@ -200,18 +200,29 @@ const ActiveWorkoutPage: React.FC = () => {
     setSelectedMuscle(null);
   };
 
-  const handleAddSet = (exerciseIdx: number) => {
+  const handleAddSet = (exerciseIdx: number, setType?: 'dropset' | 'superset') => {
     setExercises(prev => {
       const updated = [...prev];
       const lastSet = updated[exerciseIdx].sets[updated[exerciseIdx].sets.length - 1];
+      const newWeight = setType === 'dropset' 
+        ? (parseFloat(lastSet?.weight || '0') * 0.8).toFixed(1) // 20% less for dropset
+        : lastSet?.weight || '';
       updated[exerciseIdx].sets.push({
         id: crypto.randomUUID(),
-        weight: lastSet?.weight || '',
+        weight: newWeight,
         reps: lastSet?.reps || '',
         completed: false,
+        setType: setType || 'normal',
       });
       return updated;
     });
+    
+    if (setType) {
+      toast({
+        title: setType === 'dropset' ? '⬇️ Dropset añadido' : '🔗 Superset añadido',
+        description: setType === 'dropset' ? 'Peso reducido un 20%' : 'Serie enlazada',
+      });
+    }
   };
 
   const handleRemoveSet = (exerciseIdx: number, setIdx: number) => {
@@ -606,7 +617,9 @@ const ActiveWorkoutPage: React.FC = () => {
                         className={cn(
                           "grid grid-cols-[44px_1fr_1fr_44px] gap-2 items-center py-2 px-1 rounded-lg",
                           set.completed && "bg-green-500/10",
-                          isWarmup && "bg-orange-500/10"
+                          isWarmup && "bg-orange-500/10",
+                          set.setType === 'dropset' && "bg-purple-500/10 border-l-2 border-purple-500",
+                          set.setType === 'superset' && "bg-blue-500/10 border-l-2 border-blue-500"
                         )}
                       >
                         {/* Set number - tap to mark as max */}
@@ -688,11 +701,26 @@ const ActiveWorkoutPage: React.FC = () => {
                   </button>
                   <button
                     type="button"
+                    onClick={() => handleAddSet(exerciseIdx, 'dropset')}
+                    className="h-9 px-3 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 text-sm flex items-center justify-center gap-1.5"
+                  >
+                    <Layers className="w-4 h-4" />
+                    Drop
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAddSet(exerciseIdx, 'superset')}
+                    className="h-9 px-3 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm flex items-center justify-center gap-1.5"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Super
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => handleMachineOccupied(exerciseIdx)}
                     className="h-9 px-3 rounded-lg bg-orange-500/10 text-orange-600 dark:text-orange-400 text-sm flex items-center justify-center gap-1.5"
                   >
                     <RefreshCw className="w-4 h-4" />
-                    Ocupada
                   </button>
                 </div>
               </div>
