@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Smartphone, Check, Share, PlusSquare, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,13 @@ import { usePWAInstall } from '@/hooks/usePWAInstall';
 const InstallPage: React.FC = () => {
   const navigate = useNavigate();
   const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+
+  // Auto-redirect if already installed
+  useEffect(() => {
+    if (isInstalled) {
+      navigate('/hoy', { replace: true });
+    }
+  }, [isInstalled, navigate]);
 
   const handleInstall = async () => {
     await install();
