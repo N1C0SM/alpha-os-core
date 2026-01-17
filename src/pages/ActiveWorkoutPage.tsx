@@ -13,8 +13,10 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import PostWorkoutSummary from '@/components/workout/PostWorkoutSummary';
 import RestTimer from '@/components/workout/RestTimer';
+import { SetFeelingButtons, type SetFeeling } from '@/components/workout/SetFeelingButtons';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
+import { useUpdateExerciseMaxWeight, calculateSuggestedWeight, useExerciseMaxWeights } from '@/hooks/useExerciseMaxWeights';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -38,6 +40,7 @@ interface WorkoutExercise {
   targetSets?: number;
   targetRepsMin?: number;
   targetRepsMax?: number;
+  feeling?: 'easy' | 'correct' | 'hard' | null; // Exercise-level feedback
 }
 
 interface SetData {
@@ -46,6 +49,7 @@ interface SetData {
   reps: string;
   completed: boolean;
   isWarmup?: boolean;
+  feeling?: 'easy' | 'correct' | 'hard' | null; // Per-set feedback (optional)
 }
 
 const ActiveWorkoutPage: React.FC = () => {
@@ -72,6 +76,8 @@ const ActiveWorkoutPage: React.FC = () => {
   const { data: allExercises } = useExercises();
   const { data: workoutPlanDay } = useWorkoutPlanDay(dayId);
   const { data: profile } = useProfile();
+  const { data: exerciseMaxWeights } = useExerciseMaxWeights();
+  const updateMaxWeight = useUpdateExerciseMaxWeight();
   const logExercise = useLogExercise();
   const completeSession = useCompleteWorkoutSession();
   const { toast } = useToast();
@@ -244,6 +250,21 @@ const ActiveWorkoutPage: React.FC = () => {
     setExercises(prev => prev.filter((_, i) => i !== exerciseIdx));
   };
 
+  // Handle exercise-level feeling feedback
+  const handleExerciseFeeling = (exerciseIdx: number, feeling: SetFeeling) => {
+    setExercises(prev => {
+      const updated = [...prev];
+      updated[exerciseIdx].feeling = feeling;
+      return updated;
+    });
+  };
+
+  // Get max weight record for an exercise
+  const getMaxWeightForExercise = (exerciseId: string) => {
+    return exerciseMaxWeights?.find(m => m.exercise_id === exerciseId) || null;
+  };
+
+
   // Premium feature: Increase weight
   const handleEasyWeight = (exerciseIdx: number) => {
     if (!isPremium) {
@@ -338,18 +359,47 @@ const ActiveWorkoutPage: React.FC = () => {
     }
 
     try {
-      // Log all completed sets
+      // Log all completed sets and update max weights with feelings
       for (const exercise of exercises) {
+        let bestWeight = 0;
+        let bestReps = 0;
+        let hasCompletedSets = false;
+
         for (let i = 0; i < exercise.sets.length; i++) {
           const set = exercise.sets[i];
-          if (set.completed && (set.weight || set.reps)) {
+          if (set.completed && (set.weight || set.reps) && !set.isWarmup) {
+            hasCompletedSets = true;
+            const weight = set.weight ? parseFloat(set.weight) : 0;
+            const reps = set.reps ? parseInt(set.reps) : 0;
+            
+            // Track best performance
+            if (weight > bestWeight || (weight === bestWeight && reps > bestReps)) {
+              bestWeight = weight;
+              bestReps = reps;
+            }
+
             await logExercise.mutateAsync({
               workout_session_id: sessionId,
               exercise_id: exercise.exerciseId,
               set_number: i + 1,
-              weight_kg: set.weight ? parseFloat(set.weight) : undefined,
-              reps_completed: set.reps ? parseInt(set.reps) : undefined,
+              weight_kg: weight || undefined,
+              reps_completed: reps || undefined,
+              feeling: exercise.feeling || undefined,
             });
+          }
+        }
+
+        // Update exercise max weight if we have feedback
+        if (hasCompletedSets && exercise.feeling && bestWeight > 0) {
+          try {
+            await updateMaxWeight.mutateAsync({
+              exerciseId: exercise.exerciseId,
+              weightKg: bestWeight,
+              reps: bestReps,
+              feeling: exercise.feeling,
+            });
+          } catch (err) {
+            console.error('Error updating max weight:', err);
           }
         }
       }
@@ -583,8 +633,17 @@ const ActiveWorkoutPage: React.FC = () => {
                       );
                     })}
 
+                    {/* Feedback: How did this exercise feel? */}
+                    <div className="pt-2 border-t border-border/50 mt-2">
+                      <p className="text-xs text-muted-foreground mb-2 text-center">¿Cómo estuvo este ejercicio?</p>
+                      <SetFeelingButtons
+                        feeling={exercise.feeling || null}
+                        onFeelingChange={(feeling) => handleExerciseFeeling(exerciseIdx, feeling)}
+                      />
+                    </div>
+
                     {/* Premium action buttons */}
-                    <div className="flex gap-2 pt-2 border-t border-border/50 mt-2">
+                    <div className="flex gap-2 pt-2 mt-2">
                       <Button
                         variant="outline"
                         size="sm"

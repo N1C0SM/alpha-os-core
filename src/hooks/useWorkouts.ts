@@ -213,6 +213,7 @@ export const useLogExercise = () => {
       weight_kg?: number;
       reps_completed?: number;
       rpe?: number;
+      feeling?: 'easy' | 'correct' | 'hard';
     }) => {
       const { data, error } = await supabase
         .from('exercise_logs')

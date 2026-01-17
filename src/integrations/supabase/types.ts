@@ -206,7 +206,9 @@ export type Database = {
         Row: {
           created_at: string | null
           exercise_id: string
+          feeling: string | null
           id: string
+          is_pr: boolean | null
           is_warmup: boolean | null
           notes: string | null
           reps_completed: number | null
@@ -218,7 +220,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           exercise_id: string
+          feeling?: string | null
           id?: string
+          is_pr?: boolean | null
           is_warmup?: boolean | null
           notes?: string | null
           reps_completed?: number | null
@@ -230,7 +234,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           exercise_id?: string
+          feeling?: string | null
           id?: string
+          is_pr?: boolean | null
           is_warmup?: boolean | null
           notes?: string | null
           reps_completed?: number | null
@@ -252,6 +258,62 @@ export type Database = {
             columns: ["workout_session_id"]
             isOneToOne: false
             referencedRelation: "workout_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      exercise_max_weights: {
+        Row: {
+          best_reps: number
+          best_weight_kg: number
+          consecutive_successful_sessions: number | null
+          created_at: string
+          exercise_id: string
+          functional_max_kg: number
+          id: string
+          last_feeling: string | null
+          last_session_date: string | null
+          notes: string | null
+          should_progress: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_reps?: number
+          best_weight_kg?: number
+          consecutive_successful_sessions?: number | null
+          created_at?: string
+          exercise_id: string
+          functional_max_kg?: number
+          id?: string
+          last_feeling?: string | null
+          last_session_date?: string | null
+          notes?: string | null
+          should_progress?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_reps?: number
+          best_weight_kg?: number
+          consecutive_successful_sessions?: number | null
+          created_at?: string
+          exercise_id?: string
+          functional_max_kg?: number
+          id?: string
+          last_feeling?: string | null
+          last_session_date?: string | null
+          notes?: string | null
+          should_progress?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_max_weights_exercise_id_fkey"
+            columns: ["exercise_id"]
+            isOneToOne: false
+            referencedRelation: "exercises"
             referencedColumns: ["id"]
           },
         ]
@@ -1138,6 +1200,7 @@ export type Database = {
           lunch_time: string | null
           preferred_workout_days: string[] | null
           sleep_time: string | null
+          time_blocks: Json | null
           updated_at: string | null
           user_id: string
           wake_time: string | null
@@ -1154,6 +1217,7 @@ export type Database = {
           lunch_time?: string | null
           preferred_workout_days?: string[] | null
           sleep_time?: string | null
+          time_blocks?: Json | null
           updated_at?: string | null
           user_id: string
           wake_time?: string | null
@@ -1170,6 +1234,7 @@ export type Database = {
           lunch_time?: string | null
           preferred_workout_days?: string[] | null
           sleep_time?: string | null
+          time_blocks?: Json | null
           updated_at?: string | null
           user_id?: string
           wake_time?: string | null
