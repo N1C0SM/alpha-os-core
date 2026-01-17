@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import { Droplets, Moon, Clock, Dumbbell, TrendingUp } from 'lucide-react';
+import { Droplets, Moon, Clock, Dumbbell, TrendingUp, ArrowUp, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+interface ProgressionUpdate {
+  exerciseName: string;
+  previousWeight: number;
+  newWeight: number;
+  feeling: 'easy' | 'correct' | 'hard';
+}
 
 interface PostWorkoutSummaryProps {
   durationMinutes: number;
@@ -13,6 +20,7 @@ interface PostWorkoutSummaryProps {
   onSaveFeedback?: (completed: boolean, feeling: 'good' | 'normal' | 'bad') => void;
   newPRs?: number;
   workoutName?: string;
+  progressionUpdates?: ProgressionUpdate[];
 }
 
 type FeelingType = 'good' | 'normal' | 'bad';
@@ -23,6 +31,7 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
   totalSets,
   onClose,
   onSaveFeedback,
+  progressionUpdates = [],
 }) => {
   const [feedbackStep, setFeedbackStep] = useState<'questions' | 'summary'>('questions');
   const [completed, setCompleted] = useState<boolean | null>(null);
@@ -157,6 +166,49 @@ const PostWorkoutSummary: React.FC<PostWorkoutSummaryProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Progression Summary */}
+      {progressionUpdates.length > 0 && (
+        <div className="bg-card rounded-2xl p-4 border border-border mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <ArrowUp className="w-5 h-5 text-success" />
+            <h2 className="font-semibold text-foreground">Progresión</h2>
+          </div>
+          <div className="space-y-2">
+            {progressionUpdates.map((update, idx) => (
+              <div key={idx} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <span className="text-sm text-foreground truncate flex-1">{update.exerciseName}</span>
+                <div className="flex items-center gap-2">
+                  {update.newWeight > update.previousWeight ? (
+                    <span className="text-success text-sm font-medium flex items-center gap-1">
+                      <ArrowUp className="w-3 h-3" />
+                      +{(update.newWeight - update.previousWeight).toFixed(1)}kg
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-sm flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Mantenido
+                    </span>
+                  )}
+                  <span className={cn(
+                    "text-xs px-2 py-0.5 rounded-full",
+                    update.feeling === 'easy' && "bg-success/20 text-success",
+                    update.feeling === 'correct' && "bg-primary/20 text-primary",
+                    update.feeling === 'hard' && "bg-warning/20 text-warning"
+                  )}>
+                    {update.feeling === 'easy' ? 'Fácil' : update.feeling === 'correct' ? 'Bien' : 'Duro'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          {progressionUpdates.some(u => u.newWeight > u.previousWeight) && (
+            <p className="text-xs text-muted-foreground mt-3 text-center">
+              🎯 La próxima sesión sugerirá mantener estos pesos
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Hydration Reminder - Simple */}
       <div className="bg-card rounded-2xl p-4 border border-border mb-4">
