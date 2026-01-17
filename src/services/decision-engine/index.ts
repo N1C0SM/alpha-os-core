@@ -68,6 +68,9 @@ export function generateDailyPlan(input: DailyPlanInput): DailyPlan {
     totalSupplements: input.totalSupplements,
     sleepQuality: input.sleepQuality,
     stressLevel: input.stressLevel,
+    weightKg: input.weightKg,
+    fitnessGoal: input.fitnessGoal,
+    experienceLevel: input.experienceLevel,
   };
   const priorities = prioritiesDecision(prioritiesInput);
   
