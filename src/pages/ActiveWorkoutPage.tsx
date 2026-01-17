@@ -17,6 +17,8 @@ import { SetFeelingButtons, type SetFeeling } from '@/components/workout/SetFeel
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { useUpdateExerciseMaxWeight, calculateSuggestedWeight, useExerciseMaxWeights } from '@/hooks/useExerciseMaxWeights';
+import ExerciseImage from '@/components/workout/ExerciseImage';
+import { prefetchExerciseImages } from '@/hooks/useExerciseImage';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', name: 'Pecho' },
@@ -149,6 +151,8 @@ const ActiveWorkoutPage: React.FC = () => {
 
       if (routineExercises.length > 0) {
         setExercises(routineExercises);
+        // Prefetch images for all exercises
+        prefetchExerciseImages(routineExercises.map(e => e.name));
         toast({ 
           title: `Rutina cargada: ${workoutPlanDay.name}`,
           description: `${routineExercises.length} ejercicios listos${warmupSets.length > 0 ? ' con calentamiento' : ''}`,
@@ -568,8 +572,9 @@ const ActiveWorkoutPage: React.FC = () => {
           <div className="space-y-4">
             {exercises.map((exercise, exerciseIdx) => (
               <div key={exercise.id} className="bg-card rounded-xl border border-border overflow-hidden p-4">
-                {/* Exercise header - no collapse */}
-                <div className="flex items-center justify-between mb-3">
+                {/* Exercise header with image */}
+                <div className="flex items-center gap-3 mb-3">
+                  <ExerciseImage exerciseName={exercise.name} size="md" />
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-foreground truncate">{exercise.name}</h3>
                     <p className="text-xs text-muted-foreground">
