@@ -814,14 +814,46 @@ const TrainingPage: React.FC = () => {
 
       {activeTab === 'routines' && (
         <>
-          {/* Quick start */}
+          {/* Auto routine generation - AUTOPILOT */}
           <Button 
-            className="w-full h-14 bg-primary text-primary-foreground mb-6 text-base font-semibold"
-            onClick={handleStartEmptyWorkout}
-            disabled={startSession.isPending}
+            className="w-full h-14 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground mb-6 text-base font-semibold shadow-lg"
+            onClick={() => {
+              if (!canCreateRoutine && (!workoutPlans || workoutPlans.length === 0)) {
+                setShowUpgradeModal(true);
+                return;
+              }
+              // If user has no routine, create one with AI
+              if (!workoutPlans || workoutPlans.length === 0) {
+                setIsNewRoutineOpen(true);
+                // Auto-trigger AI generation
+                setTimeout(() => handleGenerateRoutine('auto'), 100);
+              } else {
+                // Find today's workout from existing routine
+                const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                const activeRoutine = workoutPlans[0];
+                const todayDay = activeRoutine?.workout_plan_days?.find(
+                  d => d.assigned_weekdays?.includes(today)
+                );
+                if (todayDay) {
+                  setViewingRoutine(activeRoutine.id);
+                  setPreWorkoutDayId(todayDay.id);
+                } else {
+                  // No workout today, show routine
+                  setViewingRoutine(activeRoutine.id);
+                  toast({ title: 'Hoy es día de descanso 😴' });
+                }
+              }
+            }}
+            disabled={startSession.isPending || isGenerating}
           >
-            <Play className="w-5 h-5 mr-2" />
-            {startSession.isPending ? 'Iniciando...' : 'Empezar Entreno Vacío'}
+            {(startSession.isPending || isGenerating) ? (
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="w-5 h-5 mr-2" />
+            )}
+            {workoutPlans && workoutPlans.length > 0 
+              ? 'Entrenar Hoy' 
+              : 'Crear Rutina con IA'}
           </Button>
 
           {/* Routines list */}
@@ -1018,28 +1050,10 @@ const TrainingPage: React.FC = () => {
               </div>
             </Button>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">o crear manual</span>
-              </div>
-            </div>
-
-            <Input
-              placeholder="Nombre de la rutina..."
-              value={newRoutineName}
-              onChange={(e) => setNewRoutineName(e.target.value)}
-              className="bg-secondary border-border"
-            />
-            <Button 
-              onClick={handleCreateRoutine} 
-              className="w-full bg-primary text-primary-foreground"
-              disabled={!newRoutineName.trim() || createPlan.isPending}
-            >
-              {createPlan.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Crear Rutina Vacía'}
-            </Button>
+            {/* Removed manual creation - AUTOPILOT mode */}
+            <p className="text-xs text-center text-muted-foreground">
+              El sistema creará tu rutina automáticamente basándose en tu perfil, objetivo y horario.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
