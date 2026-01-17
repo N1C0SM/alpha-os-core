@@ -612,37 +612,39 @@ const ActiveWorkoutPage: React.FC = () => {
                         )}
                       >
                         {/* Set number - tap to mark as max/PR */}
-                        <button
-                          type="button"
-                          onClick={() => !isWarmup && handleToggleMaxSet(exerciseIdx, setIdx)}
+                        <div 
+                          onClick={() => {
+                            if (!isWarmup) {
+                              handleToggleMaxSet(exerciseIdx, setIdx);
+                            }
+                          }}
                           className={cn(
-                            "flex items-center justify-center h-7 w-7 rounded-md mx-auto",
+                            "flex items-center justify-center h-7 w-7 rounded-md mx-auto cursor-pointer select-none",
                             set.isMaxSet && "bg-yellow-500 text-black",
-                            !isWarmup && "active:bg-yellow-500/50"
+                            !isWarmup && "active:scale-95"
                           )}
                         >
                           <span className={cn(
-                            "text-sm font-bold",
+                            "text-sm font-bold pointer-events-none",
                             isWarmup ? "text-orange-500" : 
                             set.isMaxSet ? "text-black" : "text-foreground"
                           )}>
                             {isWarmup ? 'W' : set.isMaxSet ? '★' : workingSetNumber}
                           </span>
-                        </button>
+                        </div>
                         
                         {/* Previous - tap to copy */}
-                        <button
-                          type="button"
+                        <div
                           onClick={() => {
                             if (lastSet) {
                               handleSetChange(exerciseIdx, setIdx, 'weight', lastSet.weight_kg?.toString() || '');
                               handleSetChange(exerciseIdx, setIdx, 'reps', lastSet.reps_completed?.toString() || '');
                             }
                           }}
-                          className="text-center text-xs text-muted-foreground active:text-primary"
+                          className="text-center text-xs text-muted-foreground cursor-pointer select-none active:text-primary"
                         >
                           {lastSet ? `${lastSet.weight_kg || '-'}×${lastSet.reps_completed || '-'}` : '-'}
-                        </button>
+                        </div>
                         
                         {/* Weight */}
                         <Input
@@ -665,22 +667,17 @@ const ActiveWorkoutPage: React.FC = () => {
                         />
                         
                         {/* Complete button */}
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleToggleSetComplete(exerciseIdx, setIdx);
-                          }}
+                        <div
+                          onClick={() => handleToggleSetComplete(exerciseIdx, setIdx)}
                           className={cn(
-                            "h-8 w-8 rounded-md flex items-center justify-center mx-auto",
+                            "h-8 w-8 rounded-md flex items-center justify-center mx-auto cursor-pointer select-none active:scale-95",
                             set.completed 
                               ? "bg-green-500 text-white"
                               : "bg-muted text-muted-foreground"
                           )}
                         >
-                          <Check className="w-4 h-4" />
-                        </button>
+                          <Check className="w-4 h-4 pointer-events-none" />
+                        </div>
                       </div>
                     );
                   })}
