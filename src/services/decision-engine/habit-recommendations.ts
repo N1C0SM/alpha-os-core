@@ -239,3 +239,121 @@ export function getHydrationRecommendation(weightKg: number, heightCm: number, f
     tips,
   };
 }
+
+// ============= Macro Calculator =============
+export interface MacroRecommendation {
+  calories: number;
+  proteinGrams: number;
+  carbsGrams: number;
+  fatGrams: number;
+  proteinPerKg: number;
+  isTrainingDay: boolean;
+  summary: string;
+  tips: string[];
+}
+
+export function getMacroRecommendation(
+  weightKg: number,
+  heightCm: number,
+  age: number,
+  gender: 'male' | 'female' | 'other',
+  fitnessGoal: 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance',
+  bodyFatPercent?: number,
+  isTrainingDay: boolean = true
+): MacroRecommendation {
+  // Calculate BMR using Mifflin-St Jeor equation
+  let bmr: number;
+  if (gender === 'female') {
+    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+  } else {
+    bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+  }
+
+  // Activity multiplier (assumes moderate training 4-5x/week)
+  const activityMultiplier = isTrainingDay ? 1.55 : 1.4;
+  let tdee = bmr * activityMultiplier;
+
+  // Adjust calories based on goal
+  let calorieAdjustment = 0;
+  let proteinPerKg = 1.8; // Base protein
+  
+  switch (fitnessGoal) {
+    case 'muscle_gain':
+      calorieAdjustment = 300; // Surplus for muscle building
+      proteinPerKg = 2.0; // Higher protein for muscle synthesis
+      break;
+    case 'fat_loss':
+      calorieAdjustment = -400; // Deficit for fat loss
+      proteinPerKg = 2.2; // Even higher to preserve muscle
+      break;
+    case 'recomposition':
+      calorieAdjustment = isTrainingDay ? 100 : -200; // Slight surplus on training days
+      proteinPerKg = 2.0;
+      break;
+    case 'maintenance':
+      calorieAdjustment = 0;
+      proteinPerKg = 1.8;
+      break;
+  }
+
+  // If we have body fat %, use lean body mass for more accurate protein
+  let effectiveWeight = weightKg;
+  if (bodyFatPercent && bodyFatPercent > 0 && bodyFatPercent < 50) {
+    const leanMass = weightKg * (1 - bodyFatPercent / 100);
+    // Use lean mass + a bit extra for protein calculation
+    effectiveWeight = leanMass * 1.1;
+  }
+
+  const calories = Math.round(tdee + calorieAdjustment);
+  const proteinGrams = Math.round(effectiveWeight * proteinPerKg);
+  
+  // Calculate fat (0.8-1g per kg for hormonal health)
+  const fatPerKg = fitnessGoal === 'fat_loss' ? 0.8 : 1.0;
+  const fatGrams = Math.round(weightKg * fatPerKg);
+  
+  // Remaining calories go to carbs
+  const proteinCalories = proteinGrams * 4;
+  const fatCalories = fatGrams * 9;
+  const remainingCalories = calories - proteinCalories - fatCalories;
+  const carbsGrams = Math.max(Math.round(remainingCalories / 4), 100); // Minimum 100g carbs
+
+  // Generate tips based on goal
+  const tips: string[] = [];
+  
+  if (fitnessGoal === 'muscle_gain') {
+    tips.push('Prioriza carbohidratos alrededor del entreno');
+    tips.push('Come proteína cada 3-4 horas para optimizar síntesis');
+    tips.push(`Meta: ${Math.round(proteinGrams / 4)}g proteína por comida (4 comidas)`);
+  } else if (fitnessGoal === 'fat_loss') {
+    tips.push('Divide la proteína en 4-5 comidas para saciedad');
+    tips.push('Prioriza verduras de volumen con pocas calorías');
+    tips.push('Los carbohidratos mejor pre/post entreno');
+  } else if (fitnessGoal === 'recomposition') {
+    tips.push('Más carbohidratos en días de entreno');
+    tips.push('Déficit ligero en días de descanso');
+    tips.push('Proteína alta siempre para preservar músculo');
+  } else {
+    tips.push('Mantén consistencia en tus comidas');
+    tips.push('Ajusta según tu nivel de energía');
+  }
+
+  const goalNames: Record<string, string> = {
+    muscle_gain: 'ganancia muscular',
+    fat_loss: 'pérdida de grasa',
+    recomposition: 'recomposición',
+    maintenance: 'mantenimiento',
+  };
+
+  const summary = `Calculado para ${weightKg}kg, ${heightCm}cm, objetivo: ${goalNames[fitnessGoal]}${isTrainingDay ? ' (día de entreno)' : ' (día de descanso)'}`;
+
+  return {
+    calories,
+    proteinGrams,
+    carbsGrams,
+    fatGrams,
+    proteinPerKg,
+    isTrainingDay,
+    summary,
+    tips,
+  };
+}
