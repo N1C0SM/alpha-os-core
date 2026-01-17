@@ -587,7 +587,7 @@ const ActiveWorkoutPage: React.FC = () => {
                 )}
 
                 {/* Header row */}
-                <div className="grid grid-cols-[32px_1fr_1fr_40px] gap-2 text-[10px] text-muted-foreground px-1 mb-2">
+                <div className="grid grid-cols-[44px_1fr_1fr_44px] gap-2 text-[10px] text-muted-foreground px-1 mb-2">
                   <span className="text-center">SET</span>
                   <span className="text-center">KG</span>
                   <span className="text-center">REPS</span>
@@ -604,33 +604,37 @@ const ActiveWorkoutPage: React.FC = () => {
                       <div 
                         key={set.id}
                         className={cn(
-                          "grid grid-cols-[32px_1fr_1fr_40px] gap-2 items-center py-2 px-1 rounded-lg",
+                          "grid grid-cols-[44px_1fr_1fr_44px] gap-2 items-center py-2 px-1 rounded-lg",
                           set.completed && "bg-green-500/10",
                           isWarmup && "bg-orange-500/10"
                         )}
                       >
-                        {/* Set number - tap to mark as max/PR */}
-                        <div 
-                          onClick={() => {
+                        {/* Set number - tap to mark as max */}
+                        <button
+                          type="button"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
                             if (!isWarmup) {
                               handleToggleMaxSet(exerciseIdx, setIdx);
                               if (navigator.vibrate) navigator.vibrate(50);
                             }
                           }}
                           className={cn(
-                            "flex items-center justify-center h-8 w-8 rounded-lg mx-auto cursor-pointer select-none transition-all",
+                            "h-10 w-10 rounded-lg mx-auto flex items-center justify-center cursor-pointer select-none transition-all",
                             set.isMaxSet ? "bg-yellow-500 text-black" : "bg-secondary",
                             !isWarmup && "active:scale-90"
                           )}
+                          aria-label={set.isMaxSet ? "Quitar set máximo" : "Marcar set máximo"}
                         >
-                          <span className={cn(
-                            "text-sm font-bold pointer-events-none",
-                            isWarmup ? "text-orange-500" : 
-                            set.isMaxSet ? "text-black" : "text-foreground"
-                          )}>
+                          <span
+                            className={cn(
+                              "text-sm font-bold pointer-events-none",
+                              isWarmup ? "text-orange-500" : set.isMaxSet ? "text-black" : "text-foreground"
+                            )}
+                          >
                             {isWarmup ? 'W' : set.isMaxSet ? '★' : workingSetNumber}
                           </span>
-                        </div>
+                        </button>
                         
                         {/* Weight */}
                         <Input
