@@ -22,6 +22,7 @@ import {
 import { useProfile, useUserSchedule, useUpdateUserSchedule } from '@/hooks/useProfile';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 import { routineDecision, ROUTINE_TEMPLATES, RoutineTemplate } from '@/services/decision-engine/routine-decision';
+import { WeeklyExternalActivities, ACTIVITY_MUSCLE_IMPACT, ExternalActivity } from '@/types/schedule';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -94,12 +95,103 @@ const TrainingPage: React.FC = () => {
   const deletePlan = useDeleteWorkoutPlan();
   const { toast } = useToast();
 
-  // Initialize selected days when modal opens or schedule changes
-  useEffect(() => {
-    if (isNewRoutineOpen && schedule?.preferred_workout_days) {
-      setSelectedTrainingDays(schedule.preferred_workout_days);
+  // Analyze external activities for blocked/fatigued days
+  const { blockedDays, partialFatigueDays } = useMemo(() => {
+    const blocked: string[] = [];
+    const partialFatigue: { [day: string]: string[] } = {};
+    
+    if (!schedule?.external_activities) return { blockedDays: blocked, partialFatigueDays: partialFatigue };
+    
+    const activities = schedule.external_activities as unknown as WeeklyExternalActivities;
+    
+    for (const [day, activity] of Object.entries(activities)) {
+      if (!activity) continue;
+      const typedActivity = activity as ExternalActivity;
+      const impact = ACTIVITY_MUSCLE_IMPACT[typedActivity.activity];
+      if (!impact) continue;
+      
+      // High cardio + long duration blocks the day
+      if (impact.cardiovascularLoad === 'high' && typedActivity.duration >= 60) {
+        blocked.push(day);
+      } else if (impact.highFatigue.length > 0) {
+        partialFatigue[day] = impact.highFatigue;
+      }
     }
-  }, [isNewRoutineOpen, schedule?.preferred_workout_days]);
+    
+    return { blockedDays: blocked, partialFatigueDays: partialFatigue };
+  }, [schedule?.external_activities]);
+
+  // Auto-select optimal training days based on template and schedule
+  const selectOptimalDays = (template: RoutineTemplate, requiredDays: number, maxDays: number): string[] => {
+    const ALL_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    const availableDays = ALL_DAYS.filter(d => !blockedDays.includes(d));
+    
+    // Optimal distribution patterns for different day counts
+    const OPTIMAL_PATTERNS: { [key: number]: number[][] } = {
+      3: [[0, 2, 4], [0, 2, 5], [1, 3, 5]], // L-X-V, L-X-S, M-J-S (48h recovery)
+      4: [[0, 1, 3, 4], [0, 2, 3, 5], [1, 2, 4, 5]], // L-M-J-V, L-X-J-S
+      5: [[0, 1, 2, 3, 4], [0, 1, 3, 4, 5]], // L-M-X-J-V
+      6: [[0, 1, 2, 3, 4, 5]], // L-M-X-J-V-S
+    };
+    
+    const targetDays = requiredDays;
+    const patterns = OPTIMAL_PATTERNS[targetDays] || [[0, 1, 2, 3, 4, 5, 6].slice(0, targetDays)];
+    
+    // Find best pattern that fits available days
+    for (const pattern of patterns) {
+      const selectedDays = pattern.map(idx => ALL_DAYS[idx]);
+      const allAvailable = selectedDays.every(d => availableDays.includes(d));
+      
+      if (allAvailable) {
+        return selectedDays;
+      }
+    }
+    
+    // Fallback: pick first N available days with best spacing
+    const result: string[] = [];
+    for (let i = 0; i < availableDays.length && result.length < targetDays; i++) {
+      const day = availableDays[i];
+      const dayIndex = ALL_DAYS.indexOf(day);
+      
+      // Check if adding this day maintains good spacing (at least 1 day gap when possible)
+      if (result.length === 0) {
+        result.push(day);
+      } else {
+        const lastDayIndex = ALL_DAYS.indexOf(result[result.length - 1]);
+        // Prefer at least 1 day gap for recovery, but accept consecutive if needed
+        if (dayIndex - lastDayIndex >= 1 || availableDays.length - i <= targetDays - result.length) {
+          result.push(day);
+        }
+      }
+    }
+    
+    // If we still don't have enough, add remaining available days
+    while (result.length < targetDays && result.length < availableDays.length) {
+      const nextDay = availableDays.find(d => !result.includes(d));
+      if (nextDay) result.push(nextDay);
+    }
+    
+    return result.sort((a, b) => ALL_DAYS.indexOf(a) - ALL_DAYS.indexOf(b));
+  };
+
+  // Auto-select days when template changes
+  useEffect(() => {
+    if (isNewRoutineOpen && selectedTemplate !== 'auto') {
+      const config = ROUTINE_TEMPLATES[selectedTemplate];
+      const optimalDays = selectOptimalDays(selectedTemplate, config.minDays, config.maxDays);
+      setSelectedTrainingDays(optimalDays);
+    } else if (isNewRoutineOpen && selectedTemplate === 'auto') {
+      // For auto template, use schedule preferred days or calculate based on profile
+      const preferredDays = schedule?.preferred_workout_days || [];
+      const availableDays = preferredDays.filter((d: string) => !blockedDays.includes(d));
+      if (availableDays.length >= 3) {
+        setSelectedTrainingDays(availableDays);
+      } else {
+        const optimalDays = selectOptimalDays('auto', 3, 6);
+        setSelectedTrainingDays(optimalDays);
+      }
+    }
+  }, [isNewRoutineOpen, selectedTemplate, blockedDays, schedule?.preferred_workout_days]);
 
   // Get template requirements
   const templateConfig = ROUTINE_TEMPLATES[selectedTemplate];
@@ -877,22 +969,53 @@ const TrainingPage: React.FC = () => {
               </div>
               
               <div className="flex gap-2 justify-center">
-                {WEEKDAYS.map(day => (
-                  <button
-                    key={day.id}
-                    onClick={() => toggleTrainingDay(day.id)}
-                    className={cn(
-                      "w-10 h-10 rounded-lg font-medium text-sm transition-all",
-                      selectedTrainingDays.includes(day.id)
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                    )}
-                    title={day.name}
-                  >
-                    {day.short}
-                  </button>
-                ))}
+                {WEEKDAYS.map(day => {
+                  const isBlocked = blockedDays.includes(day.id);
+                  const hasFatigue = Object.keys(partialFatigueDays).includes(day.id);
+                  const isSelected = selectedTrainingDays.includes(day.id);
+                  
+                  return (
+                    <button
+                      key={day.id}
+                      onClick={() => !isBlocked && toggleTrainingDay(day.id)}
+                      disabled={isBlocked}
+                      className={cn(
+                        "w-10 h-10 rounded-lg font-medium text-sm transition-all relative",
+                        isBlocked
+                          ? "bg-destructive/20 text-destructive line-through cursor-not-allowed"
+                          : isSelected
+                            ? hasFatigue 
+                              ? "bg-yellow-500 text-yellow-950"
+                              : "bg-primary text-primary-foreground"
+                            : hasFatigue
+                              ? "bg-yellow-500/20 text-yellow-600 hover:bg-yellow-500/30"
+                              : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                      )}
+                      title={
+                        isBlocked 
+                          ? `${day.name}: Bloqueado por actividad externa` 
+                          : hasFatigue 
+                            ? `${day.name}: Fatiga parcial (${partialFatigueDays[day.id]?.join(', ')})`
+                            : day.name
+                      }
+                    >
+                      {day.short}
+                      {isBlocked && (
+                        <span className="absolute -top-1 -right-1 text-[10px]">🚫</span>
+                      )}
+                      {hasFatigue && !isBlocked && (
+                        <span className="absolute -top-1 -right-1 text-[10px]">⚠️</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+              
+              {blockedDays.length > 0 && (
+                <p className="text-xs text-center text-muted-foreground">
+                  🚫 = día bloqueado por actividad externa &nbsp; ⚠️ = fatiga muscular
+                </p>
+              )}
 
               {!daysMatch && (
                 <p className="text-xs text-center text-yellow-500">
