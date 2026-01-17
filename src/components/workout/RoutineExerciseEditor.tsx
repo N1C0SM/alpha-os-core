@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, Plus, Minus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,6 @@ const RoutineExerciseEditor: React.FC<RoutineExerciseEditorProps> = ({
   onDelete,
   isDeleting,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
   const [localSets, setLocalSets] = useState(sets);
   const [localRepsMin, setLocalRepsMin] = useState(repsMin);
   const [localRepsMax, setLocalRepsMax] = useState(repsMax);
@@ -67,38 +66,21 @@ const RoutineExerciseEditor: React.FC<RoutineExerciseEditorProps> = ({
   };
 
   return (
-    <div className="bg-secondary/50 rounded-lg overflow-hidden">
-      {/* Collapsed view */}
-      <div 
-        className="flex items-center gap-3 p-3 cursor-pointer"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <ExerciseImage exerciseName={name} size="sm" />
+    <div className="bg-card rounded-xl border border-border overflow-hidden p-4">
+      {/* Exercise header with image - like active workout */}
+      <div className="flex items-center gap-3 mb-3">
+        <ExerciseImage exerciseName={name} size="md" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground truncate">{name}</p>
+          <h3 className="font-semibold text-foreground truncate">{name}</h3>
           <p className="text-xs text-muted-foreground">
-            {localSets} × {localRepsMin}-{localRepsMax} • {formatRest(localRest)}
+            {localSets} series • {localRepsMin}-{localRepsMax} reps • {formatRest(localRest)}
           </p>
         </div>
         <Button
           size="icon"
           variant="ghost"
-          className="h-8 w-8"
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsExpanded(!isExpanded);
-          }}
-        >
-          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
           className="text-destructive h-8 w-8"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
+          onClick={onDelete}
           disabled={isDeleting}
           aria-label="Eliminar ejercicio"
         >
@@ -106,88 +88,90 @@ const RoutineExerciseEditor: React.FC<RoutineExerciseEditorProps> = ({
         </Button>
       </div>
 
-      {/* Expanded editor */}
-      {isExpanded && (
-        <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
-          {/* Sets */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Series</span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                onClick={() => handleSetsChange(-1)}
-                disabled={localSets <= 1}
-              >
-                <Minus className="w-4 h-4" />
-              </Button>
-              <span className="w-8 text-center font-semibold text-foreground">{localSets}</span>
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                onClick={() => handleSetsChange(1)}
-                disabled={localSets >= 10}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+      {/* Table header - matching active workout style */}
+      <div className="grid grid-cols-[44px_1fr_1fr_1fr] gap-2 text-[10px] text-muted-foreground px-1 mb-2">
+        <span className="text-center">SET</span>
+        <span className="text-center">SERIES</span>
+        <span className="text-center">REPS</span>
+        <span className="text-center">DESC</span>
+      </div>
 
-          {/* Reps Range */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Repeticiones</span>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={localRepsMin}
-                onChange={(e) => handleRepsMinChange(e.target.value)}
-                className="w-14 h-8 text-center bg-background"
-                min={1}
-                max={50}
-              />
-              <span className="text-muted-foreground">-</span>
-              <Input
-                type="number"
-                inputMode="numeric"
-                value={localRepsMax}
-                onChange={(e) => handleRepsMaxChange(e.target.value)}
-                className="w-14 h-8 text-center bg-background"
-                min={1}
-                max={50}
-              />
-            </div>
-          </div>
-
-          {/* Rest Time */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Descanso</span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                onClick={() => handleRestChange(-15)}
-                disabled={localRest <= 30}
-              >
-                <Minus className="w-4 h-4" />
-              </Button>
-              <span className="w-12 text-center font-semibold text-foreground">{formatRest(localRest)}</span>
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                onClick={() => handleRestChange(15)}
-                disabled={localRest >= 300}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
+      {/* Single editable row */}
+      <div className="grid grid-cols-[44px_1fr_1fr_1fr] gap-2 items-center py-2 px-1 rounded-lg bg-secondary/50">
+        {/* Set indicator */}
+        <div className="h-10 w-10 rounded-lg mx-auto flex items-center justify-center bg-secondary">
+          <span className="text-sm font-bold text-foreground">×</span>
         </div>
-      )}
+        
+        {/* Sets control */}
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 bg-background"
+            onClick={() => handleSetsChange(-1)}
+            disabled={localSets <= 1}
+          >
+            <Minus className="w-3 h-3" />
+          </Button>
+          <span className="w-8 text-center font-bold text-foreground">{localSets}</span>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 bg-background"
+            onClick={() => handleSetsChange(1)}
+            disabled={localSets >= 10}
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+        </div>
+
+        {/* Reps range */}
+        <div className="flex items-center justify-center gap-1">
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={localRepsMin}
+            onChange={(e) => handleRepsMinChange(e.target.value)}
+            className="w-10 h-10 text-center text-sm font-semibold bg-background border-0 rounded-lg p-0"
+            min={1}
+            max={50}
+          />
+          <span className="text-muted-foreground text-xs">-</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={localRepsMax}
+            onChange={(e) => handleRepsMaxChange(e.target.value)}
+            className="w-10 h-10 text-center text-sm font-semibold bg-background border-0 rounded-lg p-0"
+            min={1}
+            max={50}
+          />
+        </div>
+
+        {/* Rest control */}
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 bg-background"
+            onClick={() => handleRestChange(-15)}
+            disabled={localRest <= 30}
+          >
+            <Minus className="w-3 h-3" />
+          </Button>
+          <span className="w-10 text-center text-xs font-semibold text-foreground">{formatRest(localRest)}</span>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 bg-background"
+            onClick={() => handleRestChange(15)}
+            disabled={localRest >= 300}
+          >
+            <Plus className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 };
