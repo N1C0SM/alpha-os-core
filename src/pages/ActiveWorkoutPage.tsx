@@ -515,15 +515,16 @@ const ActiveWorkoutPage: React.FC = () => {
       <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3 safe-top">
         <div className="flex items-center justify-between">
           <Button 
-            variant="ghost" 
+            variant="outline" 
             size="sm"
             onClick={() => setIsCancelDialogOpen(true)}
-            className="text-muted-foreground"
+            className="text-destructive border-destructive/30 hover:bg-destructive/10"
           >
+            <X className="w-4 h-4 mr-1" />
             Cancelar
           </Button>
           
-          <div className="flex items-center gap-2 text-foreground">
+          <div className="flex items-center gap-2 text-foreground bg-secondary px-3 py-1.5 rounded-full">
             <Clock className="w-4 h-4" />
             <span className="font-mono text-lg font-semibold">{formatTime(elapsedTime)}</span>
           </div>
@@ -531,9 +532,10 @@ const ActiveWorkoutPage: React.FC = () => {
           <Button 
             size="sm"
             onClick={handleFinishWorkout}
-            disabled={completeSession.isPending}
-            className="bg-primary text-primary-foreground"
+            disabled={completeSession.isPending || totalCompletedSets === 0}
+            className="bg-green-600 hover:bg-green-700 text-white"
           >
+            <Check className="w-4 h-4 mr-1" />
             Finalizar
           </Button>
         </div>
