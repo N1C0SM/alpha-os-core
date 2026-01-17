@@ -554,11 +554,9 @@ const ActiveWorkoutPage: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {exercises.map((exercise, exerciseIdx) => (
-              <div key={exercise.id} className="bg-card rounded-xl border border-border overflow-hidden">
-                <button
-                  onClick={() => handleToggleExpand(exerciseIdx)}
-                  className="w-full flex items-center justify-between p-4 text-left"
-                >
+              <div key={exercise.id} className="bg-card rounded-xl border border-border overflow-hidden p-4">
+                {/* Exercise header - no collapse */}
+                <div className="flex items-center justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-foreground truncate">{exercise.name}</h3>
                     <p className="text-xs text-muted-foreground">
@@ -568,201 +566,128 @@ const ActiveWorkoutPage: React.FC = () => {
                       )}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveExercise(exerciseIdx);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                    {exercise.isExpanded ? (
-                      <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                    )}
-                  </div>
-                </button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="text-destructive h-8 w-8"
+                    onClick={() => handleRemoveExercise(exerciseIdx)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
 
-                {exercise.isExpanded && (
-                  <div className="px-4 pb-4 space-y-2">
-                    {/* Progression suggestion */}
-                    {progressions?.[exercise.exerciseId]?.shouldProgress && (
-                      <div className="flex items-center gap-2 text-xs bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg px-3 py-2 mb-2">
-                        <TrendingUp className="w-3.5 h-3.5" />
-                        <span className="font-medium">
-                          ¡Sube a {progressions[exercise.exerciseId].suggestedWeight}kg! 
-                        </span>
-                        <span className="text-green-600/70 dark:text-green-400/70">
-                          (+{progressions[exercise.exerciseId].progressionAmount}kg)
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Last performance */}
-                    {exerciseHistory?.[exercise.exerciseId] && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2 mb-2">
-                        <History className="w-3.5 h-3.5" />
-                        <span>Último:</span>
-                        <span className="font-medium text-foreground">
-                          {exerciseHistory[exercise.exerciseId].sets.map((s, i) => 
-                            `${s.weight_kg || 0}kg×${s.reps_completed || 0}`
-                          ).join(' / ')}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Header - Hevy style */}
-                    <div className="grid grid-cols-[32px_1fr_1fr_1fr_40px] gap-1 text-xs text-muted-foreground px-1 mb-1">
-                      <span className="text-center">SET</span>
-                      <span className="text-center">ANTERIOR</span>
-                      <span className="text-center">KG</span>
-                      <span className="text-center">REPS</span>
-                      <span className="text-center">✓</span>
-                    </div>
-
-                    {/* Sets - Clean style */}
-                    {exercise.sets.map((set, setIdx) => {
-                      const lastSet = exerciseHistory?.[exercise.exerciseId]?.sets?.[setIdx];
-                      const isWarmup = set.isWarmup;
-                      const workingSetNumber = setIdx + 1 - exercise.sets.filter((s, i) => i < setIdx && s.isWarmup).length;
-                      
-                      return (
-                        <div 
-                          key={set.id}
-                          className={cn(
-                            "grid grid-cols-[32px_1fr_1fr_1fr_40px] gap-1 items-center py-2 px-1 rounded-lg transition-all",
-                            set.completed && "bg-primary/10",
-                            isWarmup && "bg-orange-500/10"
-                          )}
-                        >
-                          {/* Set number with type indicators */}
-                          <div className="flex items-center justify-center gap-0.5">
-                            <span className={cn(
-                              "text-sm font-bold",
-                              isWarmup ? "text-orange-500" : "text-foreground"
-                            )}>
-                              {isWarmup ? 'W' : workingSetNumber}
-                            </span>
-                            {set.isMaxSet && <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />}
-                            {set.setType === 'dropset' && <Zap className="w-3 h-3 text-amber-500" />}
-                            {set.setType === 'superset' && <Layers className="w-3 h-3 text-purple-500" />}
-                          </div>
-                          
-                          {/* Previous - tap to copy */}
-                          <button
-                            onClick={() => {
-                              if (lastSet) {
-                                handleSetChange(exerciseIdx, setIdx, 'weight', lastSet.weight_kg?.toString() || '');
-                                handleSetChange(exerciseIdx, setIdx, 'reps', lastSet.reps_completed?.toString() || '');
-                              }
-                            }}
-                            className="text-center text-xs text-muted-foreground hover:text-primary transition-colors"
-                          >
-                            {lastSet ? `${lastSet.weight_kg || '-'}×${lastSet.reps_completed || '-'}` : '-'}
-                          </button>
-                          
-                          {/* Weight */}
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder={lastSet?.weight_kg?.toString() || "0"}
-                            value={set.weight}
-                            onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
-                            className="h-9 text-center text-sm font-medium bg-secondary border-0"
-                          />
-                          
-                          {/* Reps */}
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder={lastSet?.reps_completed?.toString() || "0"}
-                            value={set.reps}
-                            onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
-                            className="h-9 text-center text-sm font-medium bg-secondary border-0"
-                          />
-                          
-                          {/* Complete - color shows feeling */}
-                          <button
-                            onClick={() => handleToggleSetComplete(exerciseIdx, setIdx)}
-                            className={cn(
-                              "h-9 w-9 rounded-lg flex items-center justify-center transition-all mx-auto",
-                              set.completed 
-                                ? set.feeling === 'easy' ? "bg-green-500 text-white"
-                                : set.feeling === 'hard' ? "bg-red-500 text-white"
-                                : "bg-primary text-primary-foreground"
-                                : "bg-secondary border border-border"
-                            )}
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                        </div>
-                      );
-                    })}
-
-                    {/* Compact action row */}
-                    <div className="flex gap-2 pt-2 mt-2 border-t border-border/30">
-                      <button
-                        onClick={() => handleAddSet(exerciseIdx)}
-                        className="flex-1 h-9 rounded-lg bg-secondary text-foreground text-sm flex items-center justify-center gap-1.5"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Serie
-                      </button>
-                      
-                      {/* Feeling quick selector - applies to last completed set */}
-                      {exercise.sets.some(s => s.completed && !s.isWarmup) && (
-                        <>
-                          <button
-                            onClick={() => {
-                              const lastCompletedIdx = exercise.sets.map((s, i) => s.completed && !s.isWarmup ? i : -1).filter(i => i >= 0).pop();
-                              if (lastCompletedIdx !== undefined) handleSetFeeling(exerciseIdx, lastCompletedIdx, 'easy');
-                            }}
-                            className="h-9 w-9 rounded-lg bg-green-500/20 text-green-500 flex items-center justify-center"
-                          >
-                            <TrendingUp className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const lastCompletedIdx = exercise.sets.map((s, i) => s.completed && !s.isWarmup ? i : -1).filter(i => i >= 0).pop();
-                              if (lastCompletedIdx !== undefined) handleSetFeeling(exerciseIdx, lastCompletedIdx, 'hard');
-                            }}
-                            className="h-9 w-9 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center"
-                          >
-                            <Flame className="w-4 h-4" />
-                          </button>
-                        </>
-                      )}
-                      
-                      {/* Advanced options */}
-                      <button
-                        onClick={() => {
-                          const lastIdx = exercise.sets.length - 1;
-                          handleToggleMaxSet(exerciseIdx, lastIdx);
-                        }}
-                        className="h-9 w-9 rounded-lg bg-yellow-500/20 text-yellow-600 flex items-center justify-center"
-                        title="Marcar máximo"
-                      >
-                        <Star className="w-4 h-4" />
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          const lastIdx = exercise.sets.length - 1;
-                          handleSetType(exerciseIdx, lastIdx, 'dropset');
-                        }}
-                        className="h-9 w-9 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center"
-                        title="Dropset"
-                      >
-                        <Zap className="w-4 h-4" />
-                      </button>
-                    </div>
+                {/* Progression suggestion */}
+                {progressions?.[exercise.exerciseId]?.shouldProgress && (
+                  <div className="flex items-center gap-2 text-xs bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg px-3 py-2 mb-3">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span className="font-medium">
+                      ¡Sube a {progressions[exercise.exerciseId].suggestedWeight}kg! 
+                    </span>
                   </div>
                 )}
+
+                {/* Header row */}
+                <div className="grid grid-cols-[28px_1fr_1fr_1fr_36px] gap-1 text-[10px] text-muted-foreground px-1 mb-2">
+                  <span className="text-center">SET</span>
+                  <span className="text-center">ANT</span>
+                  <span className="text-center">KG</span>
+                  <span className="text-center">REPS</span>
+                  <span></span>
+                </div>
+
+                {/* Sets - always visible */}
+                <div className="space-y-1">
+                  {exercise.sets.map((set, setIdx) => {
+                    const lastSet = exerciseHistory?.[exercise.exerciseId]?.sets?.[setIdx];
+                    const isWarmup = set.isWarmup;
+                    const workingSetNumber = setIdx + 1 - exercise.sets.filter((s, i) => i < setIdx && s.isWarmup).length;
+                    
+                    return (
+                      <div 
+                        key={set.id}
+                        className={cn(
+                          "grid grid-cols-[28px_1fr_1fr_1fr_36px] gap-1 items-center py-1.5 px-1 rounded-lg",
+                          set.completed && "bg-green-500/10",
+                          isWarmup && "bg-orange-500/10"
+                        )}
+                      >
+                        {/* Set number */}
+                        <div className="flex items-center justify-center">
+                          <span className={cn(
+                            "text-sm font-bold",
+                            isWarmup ? "text-orange-500" : "text-foreground"
+                          )}>
+                            {isWarmup ? 'W' : workingSetNumber}
+                          </span>
+                        </div>
+                        
+                        {/* Previous - tap to copy */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (lastSet) {
+                              handleSetChange(exerciseIdx, setIdx, 'weight', lastSet.weight_kg?.toString() || '');
+                              handleSetChange(exerciseIdx, setIdx, 'reps', lastSet.reps_completed?.toString() || '');
+                            }
+                          }}
+                          className="text-center text-xs text-muted-foreground active:text-primary"
+                        >
+                          {lastSet ? `${lastSet.weight_kg || '-'}×${lastSet.reps_completed || '-'}` : '-'}
+                        </button>
+                        
+                        {/* Weight */}
+                        <Input
+                          type="number"
+                          inputMode="decimal"
+                          placeholder={lastSet?.weight_kg?.toString() || "0"}
+                          value={set.weight}
+                          onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
+                          className="h-8 text-center text-sm font-medium bg-secondary border-0 rounded-md"
+                        />
+                        
+                        {/* Reps */}
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          placeholder={lastSet?.reps_completed?.toString() || "0"}
+                          value={set.reps}
+                          onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
+                          className="h-8 text-center text-sm font-medium bg-secondary border-0 rounded-md"
+                        />
+                        
+                        {/* Complete button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleToggleSetComplete(exerciseIdx, setIdx);
+                          }}
+                          className={cn(
+                            "h-8 w-8 rounded-md flex items-center justify-center mx-auto",
+                            set.completed 
+                              ? "bg-green-500 text-white"
+                              : "bg-muted text-muted-foreground"
+                          )}
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Action row */}
+                <div className="flex gap-2 pt-3 mt-3 border-t border-border/30">
+                  <button
+                    type="button"
+                    onClick={() => handleAddSet(exerciseIdx)}
+                    className="flex-1 h-9 rounded-lg bg-secondary text-foreground text-sm flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Serie
+                  </button>
+                </div>
               </div>
             ))}
           </div>
