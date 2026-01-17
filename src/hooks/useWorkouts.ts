@@ -324,6 +324,45 @@ export const useDeleteWorkoutPlanExercise = () => {
   });
 };
 
+export const useUpdateWorkoutPlanExercise = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      planExerciseId, 
+      sets, 
+      repsMin, 
+      repsMax, 
+      restSeconds 
+    }: { 
+      planExerciseId: string; 
+      sets?: number; 
+      repsMin?: number; 
+      repsMax?: number; 
+      restSeconds?: number;
+    }) => {
+      const updateData: Record<string, any> = {};
+      if (sets !== undefined) updateData.sets = sets;
+      if (repsMin !== undefined) updateData.reps_min = repsMin;
+      if (repsMax !== undefined) updateData.reps_max = repsMax;
+      if (restSeconds !== undefined) updateData.rest_seconds = restSeconds;
+
+      const { data, error } = await supabase
+        .from('workout_plan_exercises')
+        .update(updateData)
+        .eq('id', planExerciseId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workout_plans'] });
+    },
+  });
+};
+
 export const useDeleteWorkoutPlan = () => {
   const queryClient = useQueryClient();
 
