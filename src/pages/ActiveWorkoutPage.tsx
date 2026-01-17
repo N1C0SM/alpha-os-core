@@ -587,18 +587,16 @@ const ActiveWorkoutPage: React.FC = () => {
                 )}
 
                 {/* Header row */}
-                <div className="grid grid-cols-[28px_1fr_1fr_1fr_36px] gap-1 text-[10px] text-muted-foreground px-1 mb-2">
+                <div className="grid grid-cols-[32px_1fr_1fr_40px] gap-2 text-[10px] text-muted-foreground px-1 mb-2">
                   <span className="text-center">SET</span>
-                  <span className="text-center">ANT</span>
                   <span className="text-center">KG</span>
                   <span className="text-center">REPS</span>
-                  <span></span>
+                  <span className="text-center">✓</span>
                 </div>
 
                 {/* Sets - always visible */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {exercise.sets.map((set, setIdx) => {
-                    const lastSet = exerciseHistory?.[exercise.exerciseId]?.sets?.[setIdx];
                     const isWarmup = set.isWarmup;
                     const workingSetNumber = setIdx + 1 - exercise.sets.filter((s, i) => i < setIdx && s.isWarmup).length;
                     
@@ -606,7 +604,7 @@ const ActiveWorkoutPage: React.FC = () => {
                       <div 
                         key={set.id}
                         className={cn(
-                          "grid grid-cols-[28px_1fr_1fr_1fr_36px] gap-1 items-center py-1.5 px-1 rounded-lg",
+                          "grid grid-cols-[32px_1fr_1fr_40px] gap-2 items-center py-2 px-1 rounded-lg",
                           set.completed && "bg-green-500/10",
                           isWarmup && "bg-orange-500/10"
                         )}
@@ -616,12 +614,13 @@ const ActiveWorkoutPage: React.FC = () => {
                           onClick={() => {
                             if (!isWarmup) {
                               handleToggleMaxSet(exerciseIdx, setIdx);
+                              if (navigator.vibrate) navigator.vibrate(50);
                             }
                           }}
                           className={cn(
-                            "flex items-center justify-center h-7 w-7 rounded-md mx-auto cursor-pointer select-none",
-                            set.isMaxSet && "bg-yellow-500 text-black",
-                            !isWarmup && "active:scale-95"
+                            "flex items-center justify-center h-8 w-8 rounded-lg mx-auto cursor-pointer select-none transition-all",
+                            set.isMaxSet ? "bg-yellow-500 text-black" : "bg-secondary",
+                            !isWarmup && "active:scale-90"
                           )}
                         >
                           <span className={cn(
@@ -633,50 +632,40 @@ const ActiveWorkoutPage: React.FC = () => {
                           </span>
                         </div>
                         
-                        {/* Previous - tap to copy */}
-                        <div
-                          onClick={() => {
-                            if (lastSet) {
-                              handleSetChange(exerciseIdx, setIdx, 'weight', lastSet.weight_kg?.toString() || '');
-                              handleSetChange(exerciseIdx, setIdx, 'reps', lastSet.reps_completed?.toString() || '');
-                            }
-                          }}
-                          className="text-center text-xs text-muted-foreground cursor-pointer select-none active:text-primary"
-                        >
-                          {lastSet ? `${lastSet.weight_kg || '-'}×${lastSet.reps_completed || '-'}` : '-'}
-                        </div>
-                        
                         {/* Weight */}
                         <Input
                           type="number"
                           inputMode="decimal"
-                          placeholder={lastSet?.weight_kg?.toString() || "0"}
+                          placeholder="0"
                           value={set.weight}
                           onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
-                          className="h-8 text-center text-sm font-medium bg-secondary border-0 rounded-md"
+                          className="h-10 text-center text-base font-semibold bg-secondary border-0 rounded-lg"
                         />
                         
                         {/* Reps */}
                         <Input
                           type="number"
                           inputMode="numeric"
-                          placeholder={lastSet?.reps_completed?.toString() || "0"}
+                          placeholder="0"
                           value={set.reps}
                           onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
-                          className="h-8 text-center text-sm font-medium bg-secondary border-0 rounded-md"
+                          className="h-10 text-center text-base font-semibold bg-secondary border-0 rounded-lg"
                         />
                         
                         {/* Complete button */}
                         <div
-                          onClick={() => handleToggleSetComplete(exerciseIdx, setIdx)}
+                          onClick={() => {
+                            handleToggleSetComplete(exerciseIdx, setIdx);
+                            if (navigator.vibrate) navigator.vibrate(30);
+                          }}
                           className={cn(
-                            "h-8 w-8 rounded-md flex items-center justify-center mx-auto cursor-pointer select-none active:scale-95",
+                            "h-10 w-10 rounded-lg flex items-center justify-center mx-auto cursor-pointer select-none transition-all active:scale-90",
                             set.completed 
                               ? "bg-green-500 text-white"
                               : "bg-muted text-muted-foreground"
                           )}
                         >
-                          <Check className="w-4 h-4 pointer-events-none" />
+                          <Check className="w-5 h-5 pointer-events-none" />
                         </div>
                       </div>
                     );
