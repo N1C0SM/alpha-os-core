@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Check, Utensils, Droplets, AlertCircle, Coffee, UtensilsCrossed, Cookie, Moon } from 'lucide-react';
+import { Check, Utensils, Droplets, Coffee, UtensilsCrossed, Cookie, Moon, Flame, Beef, Wheat, Droplet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHydrationLog, useUpdateHydration } from '@/hooks/useNutrition';
 import { useProfile } from '@/hooks/useProfile';
-import { getHydrationRecommendation } from '@/services/decision-engine/habit-recommendations';
+import { getHydrationRecommendation, getMacroRecommendation } from '@/services/decision-engine/habit-recommendations';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -43,6 +43,7 @@ const getMealRecommendations = () => {
 
 const NutritionPage: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
+  const dayOfWeek = new Date().getDay();
   const [completedMeals, setCompletedMeals] = useState<string[]>([]);
   const [ateOutsidePlan, setAteOutsidePlan] = useState(false);
 
@@ -56,6 +57,20 @@ const NutritionPage: React.FC = () => {
     profile?.weight_kg || 75,
     profile?.height_cm || 175,
     profile?.fitness_goal || 'muscle_gain'
+  );
+
+  // Get personalized macro recommendation
+  const isTrainingDay = [1, 2, 3, 4, 5].includes(dayOfWeek); // Mon-Fri as default training days
+  const macros = getMacroRecommendation(
+    profile?.weight_kg || 75,
+    profile?.height_cm || 175,
+    profile?.date_of_birth 
+      ? Math.floor((Date.now() - new Date(profile.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
+      : 25,
+    (profile?.gender as 'male' | 'female' | 'other') || 'male',
+    (profile?.fitness_goal as 'muscle_gain' | 'fat_loss' | 'recomposition' | 'maintenance') || 'muscle_gain',
+    profile?.body_fat_percentage || undefined,
+    isTrainingDay
   );
 
   const meals = getMealRecommendations();
@@ -83,9 +98,67 @@ const NutritionPage: React.FC = () => {
     });
   };
 
+  const goalLabels: Record<string, string> = {
+    muscle_gain: 'Ganancia Muscular',
+    fat_loss: 'Pérdida de Grasa',
+    recomposition: 'Recomposición',
+    maintenance: 'Mantenimiento',
+  };
+
   return (
     <div className="px-4 py-6 safe-top pb-24">
-      <h1 className="text-2xl font-bold text-foreground mb-6">Nutrición</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-2">Nutrición</h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        {goalLabels[profile?.fitness_goal || 'muscle_gain']} · {isTrainingDay ? 'Día de entreno' : 'Día de descanso'}
+      </p>
+
+      {/* Macros Card */}
+      <div className="bg-card rounded-2xl p-5 mb-6 border border-border">
+        <div className="flex items-center gap-2 mb-4">
+          <Flame className="w-5 h-5 text-orange-400" />
+          <h3 className="font-semibold text-foreground">Tus Macros del Día</h3>
+        </div>
+
+        {/* Calories */}
+        <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-xl p-4 mb-4">
+          <div className="text-center">
+            <span className="text-3xl font-bold text-foreground">{macros.calories}</span>
+            <span className="text-lg text-muted-foreground ml-1">kcal</span>
+          </div>
+          <p className="text-xs text-center text-muted-foreground mt-1">
+            {isTrainingDay ? 'Calorías para entrenar fuerte' : 'Calorías para recuperar'}
+          </p>
+        </div>
+
+        {/* Macro breakdown */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-secondary/50 rounded-xl p-3 text-center">
+            <Beef className="w-5 h-5 text-red-400 mx-auto mb-1" />
+            <span className="text-xl font-bold text-foreground">{macros.proteinGrams}g</span>
+            <p className="text-xs text-muted-foreground">Proteína</p>
+            <p className="text-[10px] text-muted-foreground/70">{macros.proteinPerKg}g/kg</p>
+          </div>
+          <div className="bg-secondary/50 rounded-xl p-3 text-center">
+            <Wheat className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+            <span className="text-xl font-bold text-foreground">{macros.carbsGrams}g</span>
+            <p className="text-xs text-muted-foreground">Carbos</p>
+          </div>
+          <div className="bg-secondary/50 rounded-xl p-3 text-center">
+            <Droplet className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
+            <span className="text-xl font-bold text-foreground">{macros.fatGrams}g</span>
+            <p className="text-xs text-muted-foreground">Grasas</p>
+          </div>
+        </div>
+
+        {/* Tips */}
+        <div className="mt-4 space-y-1">
+          {macros.tips.slice(0, 2).map((tip, index) => (
+            <p key={index} className="text-xs text-muted-foreground flex items-center gap-1">
+              <span className="text-primary">💡</span> {tip}
+            </p>
+          ))}
+        </div>
+      </div>
 
       {/* Hydration - Simple */}
       <div className="bg-card rounded-2xl p-5 mb-6 border border-border">
