@@ -74,6 +74,7 @@ const ActiveWorkoutPage: React.FC = () => {
   const [workoutDuration, setWorkoutDuration] = useState(0);
   const [hasLoadedRoutine, setHasLoadedRoutine] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [restTimerKey, setRestTimerKey] = useState(0); // Key to trigger timer restart
 
   const { isPremium } = useSubscription();
 
@@ -250,7 +251,14 @@ const ActiveWorkoutPage: React.FC = () => {
   const handleToggleSetComplete = (exerciseIdx: number, setIdx: number) => {
     setExercises(prev => {
       const updated = [...prev];
-      updated[exerciseIdx].sets[setIdx].completed = !updated[exerciseIdx].sets[setIdx].completed;
+      const wasCompleted = updated[exerciseIdx].sets[setIdx].completed;
+      updated[exerciseIdx].sets[setIdx].completed = !wasCompleted;
+      
+      // Auto-start rest timer when completing a set (not when uncompleting)
+      if (!wasCompleted) {
+        setRestTimerKey(k => k + 1);
+      }
+      
       return updated;
     });
   };
@@ -519,10 +527,9 @@ const ActiveWorkoutPage: React.FC = () => {
       <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3 safe-top">
         <div className="flex items-center justify-between">
           <Button 
-            variant="outline" 
+            variant="destructive" 
             size="sm"
             onClick={() => setIsCancelDialogOpen(true)}
-            className="text-destructive border-destructive/30 hover:bg-destructive/10"
           >
             <X className="w-4 h-4 mr-1" />
             Cancelar
@@ -537,7 +544,7 @@ const ActiveWorkoutPage: React.FC = () => {
             size="sm"
             onClick={handleFinishWorkout}
             disabled={completeSession.isPending || totalCompletedSets === 0}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <Check className="w-4 h-4 mr-1" />
             Finalizar
@@ -737,7 +744,7 @@ const ActiveWorkoutPage: React.FC = () => {
       </div>
 
       {/* Rest Timer */}
-      <RestTimer defaultSeconds={90} />
+      <RestTimer key={restTimerKey} defaultSeconds={90} autoStart={restTimerKey > 0} />
 
       {/* Floating add button */}
       {exercises.length > 0 && (

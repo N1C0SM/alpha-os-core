@@ -18,6 +18,7 @@ import {
   useUpdateWorkoutDay,
   useDeleteWorkoutPlanExercise,
   useDeleteWorkoutPlan,
+  useUpdateWorkoutPlanExercise,
 } from '@/hooks/useWorkouts';
 import { useProfile, useUserSchedule, useUpdateUserSchedule } from '@/hooks/useProfile';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
@@ -27,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
+import RoutineExerciseEditor from '@/components/workout/RoutineExerciseEditor';
 
 const WEEKDAYS = [
   { id: 'monday', name: 'Lunes', short: 'L' },
@@ -93,6 +95,7 @@ const TrainingPage: React.FC = () => {
   const deleteDay = useDeleteWorkoutDay();
   const deletePlanExercise = useDeleteWorkoutPlanExercise();
   const deletePlan = useDeleteWorkoutPlan();
+  const updatePlanExercise = useUpdateWorkoutPlanExercise();
   const { toast } = useToast();
 
   // Analyze external activities for blocked/fatigued days
@@ -447,6 +450,17 @@ const TrainingPage: React.FC = () => {
     }
   };
 
+  const handleUpdateExercise = async (
+    planExerciseId: string, 
+    updates: { sets?: number; repsMin?: number; repsMax?: number; restSeconds?: number }
+  ) => {
+    try {
+      await updatePlanExercise.mutateAsync({ planExerciseId, ...updates });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo actualizar el ejercicio', variant: 'destructive' });
+    }
+  };
+
   const handleDeleteRoutine = async (planId: string) => {
     try {
       await deletePlan.mutateAsync({ planId });
@@ -636,27 +650,19 @@ const TrainingPage: React.FC = () => {
                 {day.workout_plan_exercises && day.workout_plan_exercises.length > 0 ? (
                   <div className="space-y-2">
                     {day.workout_plan_exercises.map((ex) => (
-                      <div key={ex.id} className="flex items-center justify-between gap-3 py-2 px-3 bg-secondary/50 rounded-lg">
-                        <div className="min-w-0">
-                          <p className="text-sm text-foreground truncate">
-                            {ex.exercises?.name_es || ex.exercises?.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {ex.sets} × {ex.reps_min}-{ex.reps_max}
-                          </p>
-                        </div>
-
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-destructive"
-                          onClick={() => handleDeleteExerciseFromDay(ex.id)}
-                          disabled={deletePlanExercise.isPending}
-                          aria-label="Eliminar ejercicio"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
+                      <RoutineExerciseEditor
+                        key={ex.id}
+                        exerciseId={ex.exercise_id}
+                        planExerciseId={ex.id}
+                        name={ex.exercises?.name_es || ex.exercises?.name || 'Ejercicio'}
+                        sets={ex.sets || 3}
+                        repsMin={ex.reps_min || 8}
+                        repsMax={ex.reps_max || 12}
+                        restSeconds={ex.rest_seconds || 90}
+                        onUpdate={(updates) => handleUpdateExercise(ex.id, updates)}
+                        onDelete={() => handleDeleteExerciseFromDay(ex.id)}
+                        isDeleting={deletePlanExercise.isPending}
+                      />
                     ))}
                   </div>
                 ) : (
