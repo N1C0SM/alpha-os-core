@@ -1,56 +1,33 @@
 import React, { useState } from 'react';
-import { Check, Utensils, Droplets, Coffee, UtensilsCrossed, Cookie, Moon, Flame, Beef, Wheat, Droplet } from 'lucide-react';
+import { Check, Droplets, UtensilsCrossed, Flame, Info, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHydrationLog, useUpdateHydration } from '@/hooks/useNutrition';
-import { useProfile } from '@/hooks/useProfile';
+import { useProfile, useUserSchedule } from '@/hooks/useProfile';
 import { getHydrationRecommendation, getMacroRecommendation } from '@/services/decision-engine/habit-recommendations';
+import { useDailyMacros, useLogMeal, useMealLogs, useDeleteMealLog } from '@/hooks/useMealLog';
+import FoodBlockLogger from '@/components/nutrition/FoodBlockLogger';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-
-// Simple meal recommendations based on time of day
-const getMealRecommendations = () => {
-  return [
-    {
-      id: 'breakfast',
-      name: 'Desayuno',
-      icon: Coffee,
-      time: '07:00 - 09:00',
-      suggestion: 'Huevos, tostadas integrales, fruta',
-    },
-    {
-      id: 'lunch',
-      name: 'Almuerzo',
-      icon: Utensils,
-      time: '12:00 - 14:00',
-      suggestion: 'Proteína, arroz/pasta, verduras',
-    },
-    {
-      id: 'snack',
-      name: 'Merienda',
-      icon: Cookie,
-      time: '16:00 - 18:00',
-      suggestion: 'Yogur, frutos secos, fruta',
-    },
-    {
-      id: 'dinner',
-      name: 'Cena',
-      icon: Moon,
-      time: '20:00 - 22:00',
-      suggestion: 'Proteína ligera, ensalada, verduras',
-    },
-  ];
-};
 
 const NutritionPage: React.FC = () => {
   const today = new Date().toISOString().split('T')[0];
   const dayOfWeek = new Date().getDay();
-  const [completedMeals, setCompletedMeals] = useState<string[]>([]);
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const todayDayName = dayNames[dayOfWeek];
+  
   const [ateOutsidePlan, setAteOutsidePlan] = useState(false);
 
   const { data: profile } = useProfile();
+  const { data: schedule } = useUserSchedule();
   const { data: hydrationLog } = useHydrationLog(today);
   const updateHydration = useUpdateHydration();
   const { toast } = useToast();
+  
+  // Meal logging
+  const logMeal = useLogMeal();
+  const deleteMealLog = useDeleteMealLog();
+  const { data: mealLogs } = useMealLogs(today);
+  const dailyMacros = useDailyMacros(today);
 
   // Get personalized hydration recommendation
   const hydration = getHydrationRecommendation(
@@ -59,8 +36,11 @@ const NutritionPage: React.FC = () => {
     profile?.fitness_goal || 'muscle_gain'
   );
 
+  // Determine if today is a training day based on user schedule
+  const preferredDays = schedule?.preferred_workout_days || ['monday', 'tuesday', 'thursday', 'friday'];
+  const isTrainingDay = preferredDays.includes(todayDayName);
+
   // Get personalized macro recommendation
-  const isTrainingDay = [1, 2, 3, 4, 5].includes(dayOfWeek); // Mon-Fri as default training days
   const macros = getMacroRecommendation(
     profile?.weight_kg || 75,
     profile?.height_cm || 175,
@@ -73,21 +53,27 @@ const NutritionPage: React.FC = () => {
     isTrainingDay
   );
 
-  const meals = getMealRecommendations();
   const hydrationProgress = hydrationLog 
     ? Math.round((hydrationLog.consumed_ml / (hydration.dailyLiters * 1000)) * 100) 
     : 0;
 
-  const handleToggleMeal = (mealId: string) => {
-    setCompletedMeals(prev => 
-      prev.includes(mealId) 
-        ? prev.filter(id => id !== mealId)
-        : [...prev, mealId]
-    );
-  };
-
   const handleAddWater = (amount: number) => {
     updateHydration.mutate({ date: today, amount });
+  };
+
+  const handleLogMeal = (meal: { protein: number; carbs: number; fat: number; calories: number; blocks: any[] }) => {
+    logMeal.mutate({
+      date: today,
+      protein: meal.protein,
+      carbs: meal.carbs,
+      fat: meal.fat,
+      calories: meal.calories,
+      blocks: meal.blocks,
+    });
+  };
+
+  const handleDeleteMeal = (id: string) => {
+    deleteMealLog.mutate({ id, date: today });
   };
 
   const handleAteOutsidePlan = () => {
@@ -112,52 +98,84 @@ const NutritionPage: React.FC = () => {
         {goalLabels[profile?.fitness_goal || 'muscle_gain']} · {isTrainingDay ? 'Día de entreno' : 'Día de descanso'}
       </p>
 
-      {/* Macros Card */}
-      <div className="bg-card rounded-2xl p-5 mb-6 border border-border">
-        <div className="flex items-center gap-2 mb-4">
+      {/* Food Block Logger - Main Feature */}
+      <div className="mb-6">
+        <FoodBlockLogger
+          targetProtein={macros.proteinGrams}
+          targetCarbs={macros.carbsGrams}
+          targetFat={macros.fatGrams}
+          targetCalories={macros.calories}
+          consumedProtein={dailyMacros.consumedProtein}
+          consumedCarbs={dailyMacros.consumedCarbs}
+          consumedFat={dailyMacros.consumedFat}
+          consumedCalories={dailyMacros.consumedCalories}
+          onLogMeal={handleLogMeal}
+        />
+      </div>
+
+      {/* Today's Logged Meals */}
+      {mealLogs && mealLogs.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-semibold text-foreground mb-3 text-sm">Comidas de hoy</h3>
+          <div className="space-y-2">
+            {mealLogs.map((log, index) => (
+              <div 
+                key={log.id}
+                className="bg-card rounded-xl p-3 border border-border flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold">
+                    {index + 1}
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium">
+                      {log.protein_grams}g prot · {log.carbs_grams}g carbs · {log.fat_grams}g grasa
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {log.calories} kcal
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  onClick={() => handleDeleteMeal(log.id)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Calories Overview */}
+      <div className="bg-card rounded-2xl p-4 mb-6 border border-border">
+        <div className="flex items-center gap-2 mb-3">
           <Flame className="w-5 h-5 text-orange-400" />
-          <h3 className="font-semibold text-foreground">Tus Macros del Día</h3>
+          <h3 className="font-semibold text-foreground">Calorías del día</h3>
         </div>
-
-        {/* Calories */}
-        <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-xl p-4 mb-4">
-          <div className="text-center">
-            <span className="text-3xl font-bold text-foreground">{macros.calories}</span>
-            <span className="text-lg text-muted-foreground ml-1">kcal</span>
-          </div>
-          <p className="text-xs text-center text-muted-foreground mt-1">
-            {isTrainingDay ? 'Calorías para entrenar fuerte' : 'Calorías para recuperar'}
-          </p>
+        
+        <div className="flex items-baseline justify-between mb-2">
+          <span className="text-3xl font-bold text-foreground">
+            {dailyMacros.consumedCalories}
+          </span>
+          <span className="text-muted-foreground">
+            / {macros.calories} kcal
+          </span>
         </div>
-
-        {/* Macro breakdown */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <Beef className="w-5 h-5 text-red-400 mx-auto mb-1" />
-            <span className="text-xl font-bold text-foreground">{macros.proteinGrams}g</span>
-            <p className="text-xs text-muted-foreground">Proteína</p>
-            <p className="text-[10px] text-muted-foreground/70">{macros.proteinPerKg}g/kg</p>
-          </div>
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <Wheat className="w-5 h-5 text-amber-400 mx-auto mb-1" />
-            <span className="text-xl font-bold text-foreground">{macros.carbsGrams}g</span>
-            <p className="text-xs text-muted-foreground">Carbos</p>
-          </div>
-          <div className="bg-secondary/50 rounded-xl p-3 text-center">
-            <Droplet className="w-5 h-5 text-yellow-400 mx-auto mb-1" />
-            <span className="text-xl font-bold text-foreground">{macros.fatGrams}g</span>
-            <p className="text-xs text-muted-foreground">Grasas</p>
-          </div>
+        
+        <div className="h-2 bg-secondary rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-orange-400 to-red-400 transition-all duration-500"
+            style={{ width: `${Math.min((dailyMacros.consumedCalories / macros.calories) * 100, 100)}%` }}
+          />
         </div>
-
-        {/* Tips */}
-        <div className="mt-4 space-y-1">
-          {macros.tips.slice(0, 2).map((tip, index) => (
-            <p key={index} className="text-xs text-muted-foreground flex items-center gap-1">
-              <span className="text-primary">💡</span> {tip}
-            </p>
-          ))}
-        </div>
+        
+        <p className="text-xs text-muted-foreground mt-2">
+          {isTrainingDay ? 'Calorías para entrenar fuerte' : 'Calorías para recuperar'}
+        </p>
       </div>
 
       {/* Hydration - Simple */}
@@ -179,10 +197,6 @@ const NutritionPage: React.FC = () => {
           />
         </div>
 
-        <p className="text-sm text-muted-foreground mb-3">
-          💧 {hydration.tips[0]}
-        </p>
-
         <div className="flex gap-2">
           {[250, 500].map((amount) => (
             <Button
@@ -199,45 +213,12 @@ const NutritionPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Meals - Simple recommendations */}
-      <h3 className="font-semibold text-foreground mb-3">Comidas del día</h3>
-      <div className="space-y-3 mb-6">
-        {meals.map((meal) => {
-          const completed = completedMeals.includes(meal.id);
-          const Icon = meal.icon;
-          return (
-            <div 
-              key={meal.id} 
-              className={cn(
-                "bg-card rounded-xl p-4 border flex items-center gap-4",
-                completed ? "border-success/30 bg-success/5" : "border-border"
-              )}
-            >
-              <button
-                onClick={() => handleToggleMeal(meal.id)}
-                className={cn(
-                  "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
-                  completed ? "bg-success" : "bg-secondary"
-                )}
-              >
-                {completed ? (
-                  <Check className="w-5 h-5 text-success-foreground" />
-                ) : (
-                  <Icon className="w-5 h-5 text-muted-foreground" />
-                )}
-              </button>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-foreground">{meal.name}</p>
-                  <span className="text-xs text-muted-foreground">{meal.time}</span>
-                </div>
-                <p className="text-sm text-muted-foreground truncate">
-                  {meal.suggestion}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+      {/* Tips */}
+      <div className="flex items-start gap-3 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20 mb-6">
+        <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+        <p className="text-xs text-primary/80">
+          {macros.tips[0]}
+        </p>
       </div>
 
       {/* Ate outside plan button */}
