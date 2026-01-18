@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { Check, Droplets, UtensilsCrossed, Flame, Info, Trash2 } from 'lucide-react';
+import { Check, Droplets, UtensilsCrossed, Flame, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHydrationLog, useUpdateHydration } from '@/hooks/useNutrition';
 import { useProfile, useUserSchedule } from '@/hooks/useProfile';
+import { useFoodPreferences } from '@/hooks/useFoodPreferences';
 import { getHydrationRecommendation, getMacroRecommendation } from '@/services/decision-engine/habit-recommendations';
 import { useDailyMacros, useLogMeal, useMealLogs, useDeleteMealLog } from '@/hooks/useMealLog';
 import FoodBlockLogger from '@/components/nutrition/FoodBlockLogger';
+import SmartHydrationReminder from '@/components/nutrition/SmartHydrationReminder';
+import MealSuggestions from '@/components/nutrition/MealSuggestions';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,6 +22,7 @@ const NutritionPage: React.FC = () => {
 
   const { data: profile } = useProfile();
   const { data: schedule } = useUserSchedule();
+  const { data: foodPreferences } = useFoodPreferences();
   const { data: hydrationLog } = useHydrationLog(today);
   const updateHydration = useUpdateHydration();
   const { toast } = useToast();
@@ -72,6 +76,17 @@ const NutritionPage: React.FC = () => {
     });
   };
 
+  const handleLogSuggestedMeal = (meal: { protein: number; carbs: number; fat: number; calories: number }) => {
+    logMeal.mutate({
+      date: today,
+      protein: meal.protein,
+      carbs: meal.carbs,
+      fat: meal.fat,
+      calories: meal.calories,
+      blocks: [],
+    });
+  };
+
   const handleDeleteMeal = (id: string) => {
     deleteMealLog.mutate({ id, date: today });
   };
@@ -91,12 +106,29 @@ const NutritionPage: React.FC = () => {
     maintenance: 'Mantenimiento',
   };
 
+  // Calculate remaining macros
+  const remainingMacros = {
+    protein: Math.max(0, macros.proteinGrams - dailyMacros.consumedProtein),
+    carbs: Math.max(0, macros.carbsGrams - dailyMacros.consumedCarbs),
+    fat: Math.max(0, macros.fatGrams - dailyMacros.consumedFat),
+    calories: Math.max(0, macros.calories - dailyMacros.consumedCalories),
+  };
+
   return (
     <div className="px-4 py-6 safe-top pb-24">
       <h1 className="text-2xl font-bold text-foreground mb-2">Nutrición</h1>
       <p className="text-sm text-muted-foreground mb-6">
         {goalLabels[profile?.fitness_goal || 'muscle_gain']} · {isTrainingDay ? 'Día de entreno' : 'Día de descanso'}
       </p>
+
+      {/* Smart Hydration Reminder */}
+      <div className="mb-4">
+        <SmartHydrationReminder
+          consumedMl={hydrationLog?.consumed_ml || 0}
+          targetMl={hydration.dailyLiters * 1000}
+          onAddWater={handleAddWater}
+        />
+      </div>
 
       {/* Food Block Logger - Main Feature */}
       <div className="mb-6">
@@ -110,6 +142,24 @@ const NutritionPage: React.FC = () => {
           consumedFat={dailyMacros.consumedFat}
           consumedCalories={dailyMacros.consumedCalories}
           onLogMeal={handleLogMeal}
+        />
+      </div>
+
+      {/* Meal Suggestions based on preferences */}
+      <div className="bg-card rounded-2xl p-5 mb-6 border border-border">
+        <MealSuggestions
+          targetMacros={{
+            protein: macros.proteinGrams,
+            carbs: macros.carbsGrams,
+            fat: macros.fatGrams,
+            calories: macros.calories,
+          }}
+          remainingMacros={remainingMacros}
+          likedFoods={foodPreferences?.liked_foods}
+          dislikedFoods={foodPreferences?.disliked_foods}
+          allergies={foodPreferences?.allergies}
+          preference={foodPreferences?.preference}
+          onSelectMeal={handleLogSuggestedMeal}
         />
       </div>
 
@@ -211,14 +261,6 @@ const NutritionPage: React.FC = () => {
             </Button>
           ))}
         </div>
-      </div>
-
-      {/* Tips */}
-      <div className="flex items-start gap-3 px-4 py-3 bg-primary/10 rounded-xl border border-primary/20 mb-6">
-        <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-        <p className="text-xs text-primary/80">
-          {macros.tips[0]}
-        </p>
       </div>
 
       {/* Ate outside plan button */}
