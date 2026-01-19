@@ -70,11 +70,13 @@ export const useUpdateExerciseMaxWeight = () => {
       weightKg,
       reps,
       feeling,
+      exerciseName,
     }: {
       exerciseId: string;
       weightKg: number;
       reps: number;
       feeling: 'easy' | 'correct' | 'hard';
+      exerciseName?: string;
     }) => {
       if (!user?.id) throw new Error('No user');
 
@@ -87,37 +89,68 @@ export const useUpdateExerciseMaxWeight = () => {
         .maybeSingle();
 
       const today = new Date().toISOString().split('T')[0];
+      const lastSessionDate = existing?.last_session_date;
+      const isSameDay = lastSessionDate === today;
       
-      // Calculate progression logic
+      // AUTOPILOT Progression Logic:
+      // 1. Never progress two sessions in a row without confirmation
+      // 2. Only suggest progression after 2 consecutive "easy" or "correct" sessions
+      // 3. If "hard", set functional max to current weight (cap)
+      // 4. Track consecutive successful sessions for smart progression
+      
       let shouldProgress = false;
       let consecutiveSessions = existing?.consecutive_successful_sessions || 0;
       let functionalMax = existing?.functional_max_kg || weightKg;
       let bestWeight = existing?.best_weight_kg || weightKg;
       let bestReps = existing?.best_reps || reps;
 
-      // Update best weight if this is better
+      // Update best weight if this is a new PR
       if (weightKg > bestWeight || (weightKg === bestWeight && reps > bestReps)) {
         bestWeight = weightKg;
         bestReps = reps;
       }
 
-      // Progression logic based on feeling
-      if (feeling === 'correct' || feeling === 'easy') {
-        consecutiveSessions++;
-        // Only suggest progression after 2 consecutive successful sessions
-        if (consecutiveSessions >= 2 && feeling === 'easy') {
+      // AUTOPILOT Progression Rules:
+      if (feeling === 'easy') {
+        // Easy = can do more weight
+        if (!isSameDay) consecutiveSessions++;
+        
+        // Suggest progression only after 2+ consecutive easy/correct sessions
+        if (consecutiveSessions >= 2) {
           shouldProgress = true;
         }
-        // Update functional max if completed successfully
+        
+        // Update functional max to this weight
         if (weightKg >= functionalMax) {
           functionalMax = weightKg;
         }
+      } else if (feeling === 'correct') {
+        // Correct = good weight, keep building
+        if (!isSameDay) consecutiveSessions++;
+        
+        // Update functional max if completed successfully at this weight
+        if (weightKg >= functionalMax) {
+          functionalMax = weightKg;
+        }
+        // Don't suggest progression yet - need "easy" feedback
+        shouldProgress = false;
       } else if (feeling === 'hard') {
-        // Reset progression counter, set functional max as this weight
+        // Hard = cap functional max here, reset progression counter
+        // This weight becomes the "functional maximum" - don't suggest going higher
         consecutiveSessions = 0;
         shouldProgress = false;
-        // Don't update functional max - keep last successful weight
+        
+        // If we're struggling at a lower weight, functional max stays at last successful weight
+        // Only update if this is a new higher weight we're struggling at
+        if (weightKg >= functionalMax) {
+          // Keep functional max at current value - don't lower it
+        }
       }
+
+      // Build notes for tracking
+      const notes = existing?.notes 
+        ? `${existing.notes}\n${today}: ${weightKg}kg x${reps} (${feeling})`
+        : `${today}: ${weightKg}kg x${reps} (${feeling})`;
 
       if (existing) {
         const { data, error } = await supabase
@@ -130,13 +163,14 @@ export const useUpdateExerciseMaxWeight = () => {
             last_feeling: feeling,
             last_session_date: today,
             should_progress: shouldProgress,
+            notes: notes.split('\n').slice(-10).join('\n'), // Keep last 10 entries
           })
           .eq('id', existing.id)
           .select()
           .single();
 
         if (error) throw error;
-        return data;
+        return { ...data, shouldProgress, suggestedWeight: shouldProgress ? calculateProgressionWeight(functionalMax, exerciseName) : functionalMax };
       } else {
         const { data, error } = await supabase
           .from('exercise_max_weights')
@@ -150,12 +184,13 @@ export const useUpdateExerciseMaxWeight = () => {
             last_feeling: feeling,
             last_session_date: today,
             should_progress: shouldProgress,
+            notes,
           })
           .select()
           .single();
 
         if (error) throw error;
-        return data;
+        return { ...data, shouldProgress, suggestedWeight: functionalMax };
       }
     },
     onSuccess: () => {
@@ -164,6 +199,16 @@ export const useUpdateExerciseMaxWeight = () => {
     },
   });
 };
+
+// Calculate progression increment based on exercise type
+function calculateProgressionWeight(currentMax: number, exerciseName?: string): number {
+  const nameLower = (exerciseName || '').toLowerCase();
+  const isLowerBody = ['sentadilla', 'peso muerto', 'prensa', 'hip thrust', 'squat', 'deadlift', 'leg press'].some(e => nameLower.includes(e));
+  const isIsolation = ['curl', 'extension', 'elevacion', 'face pull', 'apertura', 'lateral raise', 'fly'].some(e => nameLower.includes(e));
+  
+  const increment = isLowerBody ? 5 : isIsolation ? 1.25 : 2.5;
+  return currentMax + increment;
+}
 
 // Calculate suggested weight for next session
 export function calculateSuggestedWeight(

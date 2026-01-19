@@ -214,13 +214,15 @@ const TrainingPage: React.FC = () => {
     );
   };
 
-  const handleStartEmptyWorkout = async () => {
-    try {
-      const session = await startSession.mutateAsync(undefined);
-      navigate(`/entreno/activo?session=${session.id}`);
-    } catch (error) {
-      toast({ title: 'Error al iniciar', variant: 'destructive' });
+  // AUTOPILOT: No empty workouts. This triggers AI routine creation
+  const handleCreateRoutineWithAI = async () => {
+    if (!canCreateRoutine) {
+      setShowUpgradeModal(true);
+      return;
     }
+    setIsNewRoutineOpen(true);
+    // Auto-trigger AI generation with optimal template
+    setTimeout(() => handleGenerateRoutine('auto'), 100);
   };
 
   const handleStartRoutineWorkout = async (dayId: string, includeWarmup: boolean, warmupSets: any[]) => {
@@ -968,11 +970,12 @@ const TrainingPage: React.FC = () => {
             </div>
           ) : (
             <div className="text-center py-12 bg-card rounded-xl border border-dashed border-border">
-              <Dumbbell className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground mb-4">No tienes rutinas</p>
-              <Button onClick={() => setIsNewRoutineOpen(true)} className="bg-primary text-primary-foreground">
-                <Plus className="w-4 h-4 mr-2" />
-                Crear Rutina
+              <Sparkles className="w-10 h-10 text-primary mx-auto mb-3" />
+              <p className="text-muted-foreground mb-2">Aún no tienes rutina</p>
+              <p className="text-xs text-muted-foreground mb-4">El sistema creará una basada en tu perfil y objetivo</p>
+              <Button onClick={handleCreateRoutineWithAI} className="bg-primary text-primary-foreground">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Crear Rutina con IA
               </Button>
             </div>
           )}

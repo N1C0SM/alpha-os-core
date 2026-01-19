@@ -2,19 +2,22 @@ import React from 'react';
 import { useProfile, useUserPreferences, useUserSchedule } from '@/hooks/useProfile';
 import { generateDailyPlan } from '@/services/decision-engine';
 import { getHydrationRecommendation } from '@/services/decision-engine/habit-recommendations';
-import { Dumbbell, Droplets, Loader2, ChevronRight, Play, Moon, Info } from 'lucide-react';
-import { useWorkoutPlans } from '@/hooks/useWorkouts';
+import { Dumbbell, Droplets, Loader2, ChevronRight, Play, Moon, Info, Sparkles, CheckCircle2 } from 'lucide-react';
+import { useWorkoutPlans, useStartWorkoutSession } from '@/hooks/useWorkouts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const TodayPage: React.FC = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { data: preferences } = useUserPreferences();
   const { data: schedule } = useUserSchedule();
   const { data: workoutPlans } = useWorkoutPlans();
+  const startSession = useStartWorkoutSession();
 
   if (profileLoading) {
     return (
@@ -27,7 +30,7 @@ const TodayPage: React.FC = () => {
     );
   }
 
-  // Get today's workout from active plan based on assigned_weekdays (array)
+  // AUTOPILOT: Get today's workout dynamically based on assigned_weekdays
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
   const todayDayName = dayNames[new Date().getDay()];
   
@@ -36,10 +39,11 @@ const TodayPage: React.FC = () => {
     (day: any) => day.assigned_weekdays?.includes(todayDayName)
   );
   
-  const preferredDays = schedule?.preferred_workout_days || ['monday', 'tuesday', 'thursday', 'friday'];
-  const isWorkoutDay = todayWorkoutDay ? true : preferredDays.includes(todayDayName);
+  // If there's a workout day assigned for today, it's a workout day
+  const isWorkoutDay = !!todayWorkoutDay;
+  const hasRoutine = activePlan && activePlan.workout_plan_days?.length > 0;
   
-  const workoutName = todayWorkoutDay?.name || (isWorkoutDay ? 'Entrenamiento' : 'Día de descanso');
+  const workoutName = todayWorkoutDay?.name || 'Día de descanso';
   const exerciseCount = todayWorkoutDay?.workout_plan_exercises?.length || 0;
 
   // Get personalized hydration
@@ -79,9 +83,23 @@ const TodayPage: React.FC = () => {
     return 'Buenas noches';
   }
 
+  // AUTOPILOT: Single action - Start today's workout
+  const handleStartTodayWorkout = async () => {
+    if (!todayWorkoutDay) {
+      toast({ title: 'Hoy es día de descanso 😴' });
+      return;
+    }
+    try {
+      const session = await startSession.mutateAsync(todayWorkoutDay.id);
+      navigate(`/entreno/activo?session=${session.id}&dayId=${todayWorkoutDay.id}`);
+    } catch (error) {
+      toast({ title: 'Error al iniciar', variant: 'destructive' });
+    }
+  };
+
   // Estimate workout duration
   const estimatedDuration = exerciseCount > 0 
-    ? Math.round(exerciseCount * 8) // ~8 min per exercise including rest
+    ? Math.round(exerciseCount * 8)
     : schedule?.workout_duration_minutes || 45;
 
   // Get muscle focus from workout day
@@ -100,8 +118,31 @@ const TodayPage: React.FC = () => {
       </div>
 
       <div className="px-5 space-y-4">
-        {/* ============= HERO: TRAINING CARD ============= */}
-        {isWorkoutDay && !plan.shouldRest ? (
+        {/* ============= NO ROUTINE: Create with AI ============= */}
+        {!hasRoutine && (
+          <div className="relative overflow-hidden bg-gradient-to-br from-primary/20 via-primary/10 to-transparent rounded-3xl p-6 border border-primary/30">
+            <div className="text-center">
+              <Sparkles className="w-12 h-12 text-primary mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-foreground mb-2">
+                Configura tu rutina automática
+              </h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                AUTOPILOT creará tu plan personalizado basado en tu perfil, objetivo y horario
+              </p>
+              <Button
+                onClick={() => navigate('/entreno')}
+                size="lg"
+                className="bg-primary text-primary-foreground font-bold h-14 px-8"
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                Crear Rutina con IA
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ============= HERO: TRAINING CARD (when routine exists) ============= */}
+        {hasRoutine && isWorkoutDay && !plan.shouldRest && (
           <div className="relative overflow-hidden bg-gradient-to-br from-primary via-primary to-primary/80 rounded-3xl p-6 shadow-xl">
             {/* Decorative elements */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
@@ -132,21 +173,29 @@ const TodayPage: React.FC = () => {
               </div>
               
               <p className="text-primary-foreground/70 text-sm mb-6">
-                {exerciseCount > 0 ? `${exerciseCount} ejercicios preparados` : plan.training.reason}
+                {exerciseCount} ejercicios • Pesos ajustados automáticamente
               </p>
               
+              {/* AUTOPILOT: Single button, no choices */}
               <Button
-                onClick={() => navigate('/entreno')}
+                onClick={handleStartTodayWorkout}
                 size="lg"
                 className="w-full bg-white text-primary hover:bg-white/90 font-bold text-lg h-14 rounded-xl shadow-lg"
+                disabled={startSession.isPending}
               >
-                <Play className="w-5 h-5 mr-2 fill-current" />
-                Empezar Entrenamiento
+                {startSession.isPending ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <Play className="w-5 h-5 mr-2 fill-current" />
+                )}
+                Entrenar Ahora
               </Button>
             </div>
           </div>
-        ) : (
-          /* Rest Day Hero */
+        )}
+
+        {/* Rest Day Hero (when routine exists but it's rest day) */}
+        {hasRoutine && (!isWorkoutDay || plan.shouldRest) && (
           <div className="relative overflow-hidden bg-gradient-to-br from-secondary via-secondary to-muted rounded-3xl p-6">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-1/2 translate-x-1/2" />
             
@@ -154,12 +203,13 @@ const TodayPage: React.FC = () => {
               <div className="p-4 rounded-2xl bg-primary/10">
                 <Moon className="w-8 h-8 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <h2 className="text-2xl font-bold text-foreground">Día de descanso</h2>
                 <p className="text-muted-foreground">
                   {plan.shouldRest ? 'Tu cuerpo necesita recuperarse' : 'Recupera para volver más fuerte'}
                 </p>
               </div>
+              <CheckCircle2 className="w-8 h-8 text-green-500" />
             </div>
           </div>
         )}
