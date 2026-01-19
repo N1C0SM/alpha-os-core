@@ -97,17 +97,11 @@ const ActiveWorkoutPage: React.FC = () => {
     if (workoutPlanDay && !hasLoadedRoutine && allExercises) {
       const routineExercises: WorkoutExercise[] = [];
       
-      // Parse warmup data if present - now contains per-exercise warmups
-      let exerciseWarmups: Array<{
-        exerciseId: string;
-        exerciseName: string;
-        workingWeight: number;
-        warmupSets: Array<{ weight: number; reps: number; percentage: number }>;
-      }> = [];
-      
+      // Parse warmup sets if present
+      let warmupSets: any[] = [];
       if (warmupParam) {
         try {
-          exerciseWarmups = JSON.parse(decodeURIComponent(warmupParam));
+          warmupSets = JSON.parse(decodeURIComponent(warmupParam));
         } catch (e) {
           console.error('Failed to parse warmup sets', e);
         }
@@ -120,16 +114,11 @@ const ActiveWorkoutPage: React.FC = () => {
 
         const sets: SetData[] = [];
         
-        // Find warmup sets for THIS specific exercise
-        const exerciseWarmup = exerciseWarmups.find(
-          ew => ew.exerciseId === planEx.id || ew.exerciseName === (exerciseInfo.name_es || exerciseInfo.name)
-        );
-        
-        // Add warmup sets if configured for this exercise
-        if (exerciseWarmup && exerciseWarmup.warmupSets.length > 0) {
-          exerciseWarmup.warmupSets.forEach((ws, i) => {
+        // Add warmup sets to the first exercise
+        if (index === 0 && warmupSets.length > 0) {
+          warmupSets.forEach((ws, i) => {
             sets.push({
-              id: `warmup-${planEx.id}-${i}`,
+              id: `warmup-${i}`,
               weight: ws.weight.toString(),
               reps: ws.reps.toString(),
               completed: false,
@@ -161,16 +150,13 @@ const ActiveWorkoutPage: React.FC = () => {
         });
       });
 
-      // Count total warmup sets for toast message
-      const totalWarmupSets = exerciseWarmups.reduce((acc, ew) => acc + ew.warmupSets.length, 0);
-
       if (routineExercises.length > 0) {
         setExercises(routineExercises);
         // Prefetch images for all exercises
         prefetchExerciseImages(routineExercises.map(e => e.name));
         toast({ 
           title: `Rutina cargada: ${workoutPlanDay.name}`,
-          description: `${routineExercises.length} ejercicios${totalWarmupSets > 0 ? ` + ${totalWarmupSets} series de calentamiento` : ''}`,
+          description: `${routineExercises.length} ejercicios listos${warmupSets.length > 0 ? ' con calentamiento' : ''}`,
         });
       }
       setHasLoadedRoutine(true);

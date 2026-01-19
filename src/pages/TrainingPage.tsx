@@ -23,7 +23,6 @@ import {
 } from '@/hooks/useWorkouts';
 import { useProfile, useUserSchedule, useUpdateUserSchedule } from '@/hooks/useProfile';
 import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
-import { useExerciseMaxWeights } from '@/hooks/useExerciseMaxWeights';
 import { routineDecision, ROUTINE_TEMPLATES, RoutineTemplate } from '@/services/decision-engine/routine-decision';
 import { WeeklyExternalActivities, ACTIVITY_MUSCLE_IMPACT, ExternalActivity } from '@/types/schedule';
 import { useToast } from '@/hooks/use-toast';
@@ -482,28 +481,16 @@ const TrainingPage: React.FC = () => {
 
   // Get exercises for pre-workout modal
   const preWorkoutDay = currentRoutine?.workout_plan_days?.find(d => d.id === preWorkoutDayId);
-  const { data: exerciseMaxWeightsData } = useExerciseMaxWeights();
-  
   const preWorkoutExercises = useMemo(() => {
     if (!preWorkoutDay?.workout_plan_exercises) return [];
-    return preWorkoutDay.workout_plan_exercises.map(ex => {
-      // Find max weight for this exercise from user history
-      const exerciseId = ex.exercises?.id;
-      const maxWeightRecord = exerciseMaxWeightsData?.find(
-        mw => mw.exercise_id === exerciseId
-      );
-      
-      return {
-        id: ex.id,
-        exerciseId: exerciseId || ex.id, // Store actual exercise ID for warmup lookup
-        name: ex.exercises?.name_es || ex.exercises?.name || 'Ejercicio',
-        sets: ex.sets || 3,
-        repsMin: ex.reps_min || 8,
-        repsMax: ex.reps_max || 12,
-        maxWeight: maxWeightRecord?.functional_max_kg || maxWeightRecord?.best_weight_kg || 0,
-      };
-    });
-  }, [preWorkoutDay, exerciseMaxWeightsData]);
+    return preWorkoutDay.workout_plan_exercises.map(ex => ({
+      id: ex.id,
+      name: ex.exercises?.name_es || ex.exercises?.name || 'Ejercicio',
+      sets: ex.sets || 3,
+      repsMin: ex.reps_min || 8,
+      repsMax: ex.reps_max || 12,
+    }));
+  }, [preWorkoutDay]);
 
   const filteredExercises = useMemo(() => {
     return exercises?.filter(ex => {
