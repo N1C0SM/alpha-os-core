@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Play, Flame, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Flame, ChevronDown, ChevronUp, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
-interface WarmupSet {
+export interface WarmupSet {
   setNumber: number;
   percentage: number;
   weight: number;
@@ -14,30 +14,82 @@ interface WarmupSet {
   rest: string;
 }
 
+export interface ExerciseWarmup {
+  exerciseId: string;
+  exerciseName: string;
+  workingWeight: number;
+  warmupSets: WarmupSet[];
+}
+
 interface Exercise {
   id: string;
+  exerciseId?: string; // Actual exercise ID from exercises table (for warmup lookup)
   name: string;
   sets: number;
   repsMin: number;
   repsMax: number;
+  category?: string;
+  maxWeight?: number; // From exercise_max_weights
 }
 
 interface PreWorkoutModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStartWorkout: (includeWarmup: boolean, warmupSets: WarmupSet[]) => void;
+  onStartWorkout: (includeWarmup: boolean, exerciseWarmups: ExerciseWarmup[]) => void;
   dayName: string;
   exercises: Exercise[];
   isStarting?: boolean;
 }
 
+// Progressive warmup scheme for compound movements
 const WARMUP_SCHEME = [
-  { percentage: 0, reps: 10, rest: '1 min' },   // Bar only
-  { percentage: 40, reps: 8, rest: '1 min' },
-  { percentage: 55, reps: 5, rest: '1.5 min' },
-  { percentage: 70, reps: 3, rest: '2 min' },
-  { percentage: 85, reps: 2, rest: '2-3 min' },
+  { percentage: 0, reps: 10, rest: '1 min' },    // Bar only / very light
+  { percentage: 40, reps: 8, rest: '1 min' },    // 40% working weight
+  { percentage: 55, reps: 5, rest: '1.5 min' },  // 55% working weight
+  { percentage: 70, reps: 3, rest: '2 min' },    // 70% working weight
+  { percentage: 85, reps: 2, rest: '2-3 min' },  // 85% working weight (last approach)
 ];
+
+// Shorter warmup for isolation/accessory
+const LIGHT_WARMUP_SCHEME = [
+  { percentage: 50, reps: 12, rest: '30s' },
+  { percentage: 70, reps: 8, rest: '1 min' },
+];
+
+// Check if exercise is compound (needs full warmup)
+const isCompoundExercise = (name: string): boolean => {
+  const compoundKeywords = [
+    'press', 'sentadilla', 'peso muerto', 'remo', 'dominada', 'fondos',
+    'squat', 'deadlift', 'bench', 'row', 'pull-up', 'dip', 'militar',
+    'hip thrust', 'zancada', 'lunge', 'clean', 'snatch', 'jerk'
+  ];
+  const lowerName = name.toLowerCase();
+  return compoundKeywords.some(keyword => lowerName.includes(keyword));
+};
+
+const generateWarmupSets = (
+  workingWeight: number,
+  barWeight: number,
+  isCompound: boolean
+): WarmupSet[] => {
+  if (!workingWeight || workingWeight <= 0) return [];
+  
+  const scheme = isCompound ? WARMUP_SCHEME : LIGHT_WARMUP_SCHEME;
+  
+  return scheme.map((s, index) => {
+    const calculatedWeight = s.percentage === 0 
+      ? barWeight 
+      : Math.round((workingWeight * s.percentage) / 100 / 2.5) * 2.5;
+    
+    return {
+      setNumber: index + 1,
+      percentage: s.percentage,
+      weight: Math.max(calculatedWeight, barWeight),
+      reps: s.reps,
+      rest: s.rest,
+    };
+  });
+};
 
 const PreWorkoutModal: React.FC<PreWorkoutModalProps> = ({
   isOpen,
@@ -48,38 +100,55 @@ const PreWorkoutModal: React.FC<PreWorkoutModalProps> = ({
   isStarting = false,
 }) => {
   const [includeWarmup, setIncludeWarmup] = useState(true);
-  const [workingWeight, setWorkingWeight] = useState<number>(0);
   const [barWeight, setBarWeight] = useState<number>(20);
-  const [showWarmupDetails, setShowWarmupDetails] = useState(false);
-
-  // Get first compound exercise for warmup reference
-  const firstExercise = exercises[0];
-
-  const warmupSets = useMemo(() => {
-    if (!workingWeight || workingWeight <= 0) return [];
-    
-    return WARMUP_SCHEME.map((scheme, index) => {
-      const calculatedWeight = scheme.percentage === 0 
-        ? barWeight 
-        : Math.round((workingWeight * scheme.percentage) / 100 / 2.5) * 2.5;
-      
-      return {
-        setNumber: index + 1,
-        percentage: scheme.percentage,
-        weight: Math.max(calculatedWeight, barWeight),
-        reps: scheme.reps,
-        rest: scheme.rest,
-      };
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
+  
+  // Track working weights per exercise - initialize from maxWeight if available
+  const [exerciseWeights, setExerciseWeights] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    exercises.forEach(ex => {
+      if (ex.maxWeight && ex.maxWeight > 0) {
+        initial[ex.id] = ex.maxWeight;
+      }
     });
-  }, [workingWeight, barWeight]);
+    return initial;
+  });
+
+  // Get compound exercises that need warmup
+  const compoundExercises = useMemo(() => 
+    exercises.filter(ex => isCompoundExercise(ex.name)),
+    [exercises]
+  );
+
+  // Generate warmups for each exercise with a weight set
+  const exerciseWarmups = useMemo((): ExerciseWarmup[] => {
+    return exercises
+      .filter(ex => exerciseWeights[ex.id] && exerciseWeights[ex.id] > 0)
+      .map(ex => ({
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+        workingWeight: exerciseWeights[ex.id],
+        warmupSets: generateWarmupSets(
+          exerciseWeights[ex.id],
+          barWeight,
+          isCompoundExercise(ex.name)
+        ),
+      }));
+  }, [exercises, exerciseWeights, barWeight]);
 
   const handleStart = () => {
-    onStartWorkout(includeWarmup && warmupSets.length > 0, warmupSets);
+    onStartWorkout(includeWarmup && exerciseWarmups.length > 0, exerciseWarmups);
   };
+
+  const updateExerciseWeight = (exerciseId: string, weight: number) => {
+    setExerciseWeights(prev => ({ ...prev, [exerciseId]: weight }));
+  };
+
+  const totalWarmupSets = exerciseWarmups.reduce((acc, ew) => acc + ew.warmupSets.length, 0);
 
   return (
     <Dialog open={isOpen} onOpenChange={() => !isStarting && onClose()}>
-      <DialogContent className="bg-card border-border max-w-md">
+      <DialogContent className="bg-card border-border max-w-md max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Flame className="w-5 h-5 text-primary" />
@@ -90,15 +159,20 @@ const PreWorkoutModal: React.FC<PreWorkoutModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pt-2 overflow-y-auto flex-1">
           {/* Exercises preview */}
           <div className="bg-secondary/50 rounded-lg p-3">
             <p className="text-xs text-muted-foreground mb-2">Ejercicios programados:</p>
             <div className="space-y-1">
               {exercises.slice(0, 4).map((ex, i) => (
-                <p key={ex.id} className="text-sm text-foreground">
-                  {i + 1}. {ex.name} ({ex.sets}×{ex.repsMin}-{ex.repsMax})
-                </p>
+                <div key={ex.id} className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">
+                    {i + 1}. {ex.name} ({ex.sets}×{ex.repsMin}-{ex.repsMax})
+                  </p>
+                  {isCompoundExercise(ex.name) && (
+                    <span className="text-xs text-primary">compuesto</span>
+                  )}
+                </div>
               ))}
               {exercises.length > 4 && (
                 <p className="text-xs text-muted-foreground">
@@ -126,7 +200,7 @@ const PreWorkoutModal: React.FC<PreWorkoutModalProps> = ({
               <div className="flex-1">
                 <p className="font-medium text-foreground">Incluir calentamiento</p>
                 <p className="text-xs text-muted-foreground">
-                  Series progresivas antes del primer ejercicio
+                  Series de aproximación progresivas por ejercicio
                 </p>
               </div>
               <Flame className={cn("w-5 h-5", includeWarmup ? "text-primary" : "text-muted-foreground")} />
@@ -134,69 +208,104 @@ const PreWorkoutModal: React.FC<PreWorkoutModalProps> = ({
 
             {includeWarmup && (
               <div className="space-y-3 pl-3 border-l-2 border-primary/30">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Peso de trabajo (kg)
-                    </label>
-                    <Input
-                      type="number"
-                      placeholder="ej: 80"
-                      value={workingWeight || ''}
-                      onChange={(e) => setWorkingWeight(Number(e.target.value))}
-                      className="bg-secondary border-border"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      Peso barra (kg)
-                    </label>
-                    <Input
-                      type="number"
-                      value={barWeight}
-                      onChange={(e) => setBarWeight(Number(e.target.value) || 20)}
-                      className="bg-secondary border-border"
-                    />
-                  </div>
+                {/* Bar weight setting */}
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-muted-foreground whitespace-nowrap">
+                    Peso barra (kg):
+                  </label>
+                  <Input
+                    type="number"
+                    value={barWeight}
+                    onChange={(e) => setBarWeight(Number(e.target.value) || 20)}
+                    className="bg-secondary border-border w-20 h-8 text-sm"
+                  />
                 </div>
 
-                {warmupSets.length > 0 && (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setShowWarmupDetails(!showWarmupDetails)}
-                      className="flex items-center gap-2 text-sm text-primary"
-                    >
-                      {showWarmupDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      Ver series de calentamiento
-                    </button>
-
-                    {showWarmupDetails && (
-                      <div className="mt-2 space-y-1.5">
-                        {warmupSets.map((set) => (
-                          <div
-                            key={set.setNumber}
-                            className="flex items-center justify-between py-1.5 px-2 bg-secondary/50 rounded text-xs"
-                          >
-                            <span className="text-muted-foreground">
-                              Set {set.setNumber} ({set.percentage}%)
-                            </span>
-                            <span className="font-medium text-foreground">
-                              {set.weight} kg × {set.reps} reps
-                            </span>
-                            <span className="text-muted-foreground">
-                              {set.rest}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                {/* Info about compound exercises */}
+                {compoundExercises.length > 0 && (
+                  <div className="flex items-start gap-2 p-2 bg-primary/10 rounded text-xs">
+                    <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                    <span className="text-muted-foreground">
+                      Indica el peso de trabajo para generar series de aproximación en ejercicios compuestos
+                    </span>
                   </div>
                 )}
 
-                {workingWeight > 0 && warmupSets.length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Introduce el peso de trabajo para generar el calentamiento
+                {/* Per-exercise weight inputs */}
+                <div className="space-y-2">
+                  {exercises.map((ex) => {
+                    const isCompound = isCompoundExercise(ex.name);
+                    const weight = exerciseWeights[ex.id] || 0;
+                    const warmups = weight > 0 
+                      ? generateWarmupSets(weight, barWeight, isCompound)
+                      : [];
+                    const isExpanded = expandedExercise === ex.id;
+
+                    return (
+                      <div 
+                        key={ex.id} 
+                        className={cn(
+                          "rounded-lg border transition-colors",
+                          weight > 0 ? "border-primary/50 bg-primary/5" : "border-border bg-secondary/30"
+                        )}
+                      >
+                        <div className="flex items-center gap-2 p-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{ex.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {isCompound ? '5 series aprox.' : '2 series aprox.'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              placeholder="kg"
+                              value={weight || ''}
+                              onChange={(e) => updateExerciseWeight(ex.id, Number(e.target.value))}
+                              className="bg-background border-border w-16 h-8 text-sm"
+                            />
+                            {warmups.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedExercise(isExpanded ? null : ex.id)}
+                                className="p-1 text-primary"
+                              >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Warmup sets preview */}
+                        {isExpanded && warmups.length > 0 && (
+                          <div className="px-2 pb-2 space-y-1">
+                            {warmups.map((set) => (
+                              <div
+                                key={set.setNumber}
+                                className="flex items-center justify-between py-1 px-2 bg-secondary/50 rounded text-xs"
+                              >
+                                <span className="text-muted-foreground">
+                                  {set.percentage === 0 ? 'Barra' : `${set.percentage}%`}
+                                </span>
+                                <span className="font-medium text-foreground">
+                                  {set.weight} kg × {set.reps}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {set.rest}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Summary */}
+                {totalWarmupSets > 0 && (
+                  <p className="text-xs text-primary font-medium">
+                    ✓ {totalWarmupSets} series de calentamiento configuradas
                   </p>
                 )}
               </div>
