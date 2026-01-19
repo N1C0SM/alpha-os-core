@@ -732,7 +732,7 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
     weeklySchedule[assignedDay] = dayName;
   }
 
-  // Generate personalized description
+  // Generate personalized description and NAME
   const goalLabels: Record<string, string> = {
     muscle_gain: 'Hipertrofia',
     fat_loss: 'Definición',
@@ -745,14 +745,46 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
     upper_lower: 'Torso/Pierna',
     full_body: 'Full Body',
     bro_split: 'Bro Split',
-    custom: 'Personalizada',
+    custom: 'Híbrida',
+  };
+
+  // Generate meaningful name based on goal, split, and user context
+  // NEVER use generic names like "Personalizado" or "Custom"
+  const generateRoutineName = (): string => {
+    const goalEmoji = {
+      muscle_gain: '💪',
+      fat_loss: '🔥',
+      recomposition: '⚡',
+      maintenance: '✅',
+    }[fitnessGoal];
+
+    const levelAdjective = {
+      beginner: 'Fundamental',
+      intermediate: 'Avanzado',
+      advanced: 'Elite',
+    }[experienceLevel];
+
+    // Context-aware naming
+    if (hasSignificantExternalLoad) {
+      return `${goalEmoji} ${goalLabels[fitnessGoal]} + Atleta Activo`;
+    }
+
+    if (availableGymDays.length <= 3) {
+      return `${goalEmoji} ${goalLabels[fitnessGoal]} Express (${availableGymDays.length}d)`;
+    }
+
+    if (template !== 'auto') {
+      return `${goalEmoji} ${ROUTINE_TEMPLATES[template].name} - ${goalLabels[fitnessGoal]}`;
+    }
+
+    return `${goalEmoji} ${levelAdjective} ${splitLabels[splitType]}`;
   };
 
   // Build description
-  let description = `Rutina ${splitLabels[splitType]} diseñada para ${goalLabels[fitnessGoal].toLowerCase()}. `;
+  let description = `${splitLabels[splitType]} diseñada para ${goalLabels[fitnessGoal].toLowerCase()}. `;
   
   if (weightKg && heightCm) {
-    description += `Ajustada a tu composición corporal (${weightKg}kg, ${heightCm}cm). `;
+    description += `Ajustada a tu composición (${weightKg}kg). `;
   }
   
   const assignedDaysList = routineDaysData
@@ -763,11 +795,11 @@ export function routineDecision(input: RoutineDecisionInput): RoutineRecommendat
 
   // Add external activity notes
   if (Object.keys(externalActivities).length > 0) {
-    personalNotes.push('📅 Rutina adaptada a tus actividades externas');
+    personalNotes.push('📅 Adaptada a tus deportes externos');
   }
 
   return {
-    name: `${splitLabels[splitType]} - ${goalLabels[fitnessGoal]}`,
+    name: generateRoutineName(),
     description,
     splitType,
     days: routineDaysData,
