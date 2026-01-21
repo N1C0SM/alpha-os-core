@@ -2,13 +2,17 @@ import React from 'react';
 import { useProfile, useUserPreferences, useUserSchedule } from '@/hooks/useProfile';
 import { generateDailyPlan } from '@/services/decision-engine';
 import { getHydrationRecommendation } from '@/services/decision-engine/habit-recommendations';
-import { Dumbbell, Droplets, Loader2, ChevronRight, Play, Moon, Info, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Dumbbell, Loader2, ChevronRight, Play, Moon, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useWorkoutPlans, useStartWorkoutSession } from '@/hooks/useWorkouts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import DailyHabitsCard from '@/components/habits/DailyHabitsCard';
+import MuscleProgressCard from '@/components/progress/MuscleProgressCard';
+import MacroSummaryCard from '@/components/nutrition/MacroSummaryCard';
+import { useSubscriptionLimits } from '@/hooks/useSubscriptionLimits';
 
 const TodayPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,6 +22,7 @@ const TodayPage: React.FC = () => {
   const { data: schedule } = useUserSchedule();
   const { data: workoutPlans } = useWorkoutPlans();
   const startSession = useStartWorkoutSession();
+  const { isPremium } = useSubscriptionLimits();
 
   if (profileLoading) {
     return (
@@ -214,34 +219,14 @@ const TodayPage: React.FC = () => {
           </div>
         )}
 
-        {/* ============= HYDRATION CARD (Simple) ============= */}
-        <div 
-          onClick={() => navigate('/nutricion')}
-          className="group bg-card hover:bg-card/80 rounded-2xl p-4 border border-border/50 cursor-pointer active:scale-[0.98] transition-all"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-blue-500/10">
-                <Droplets className="w-5 h-5 text-blue-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">Hidratación</h3>
-                <p className="text-sm text-muted-foreground">
-                  Objetivo: {hydration.dailyLiters.toFixed(1)}L de agua
-                </p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-          </div>
-        </div>
+        {/* ============= DAILY HABITS (Auto-complete system) ============= */}
+        <DailyHabitsCard />
 
-        {/* Hydration tip */}
-        <div className="flex items-start gap-3 px-4 py-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
-          <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-blue-300/80">
-            {hydration.tips[0]}
-          </p>
-        </div>
+        {/* ============= MACRO SUMMARY CARD ============= */}
+        <MacroSummaryCard />
+
+        {/* ============= MUSCLE PROGRESS (Premium) ============= */}
+        {isPremium && <MuscleProgressCard />}
 
         {/* ============= PRIORITIES (Compact) ============= */}
         <div className="space-y-2">
