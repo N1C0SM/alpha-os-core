@@ -2,9 +2,9 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProfile } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
-import { User, Target, Calendar, Settings, LogOut, ChevronRight, Download, Crown, RotateCcw, Shield } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { User, Target, Calendar, Settings, LogOut, Crown, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { usePWAInstall } from '@/hooks/usePWAInstall';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,6 @@ const ProfilePage: React.FC = () => {
   const { user, signOut } = useAuth();
   const { data: profile } = useProfile();
   const navigate = useNavigate();
-  const { isInstalled } = usePWAInstall();
   const { isPremium } = useSubscription();
 
   const { data: isAdmin } = useQuery({
@@ -35,10 +34,6 @@ const ProfilePage: React.FC = () => {
     navigate('/auth');
   };
 
-  const handleRedoOnboarding = () => {
-    navigate('/onboarding?redo=true');
-  };
-
   const goalLabels = {
     muscle_gain: 'Ganar músculo',
     fat_loss: 'Perder grasa',
@@ -54,118 +49,101 @@ const ProfilePage: React.FC = () => {
   ];
 
   return (
-    <div className="px-4 py-6 safe-top">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Perfil</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-foreground">Perfil</h1>
         {isPremium && (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-500/30">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-500/30">
             <Crown className="w-4 h-4 text-yellow-500" />
-            <span className="text-xs font-semibold text-yellow-500">Premium</span>
+            <span className="text-sm font-semibold text-yellow-500">Premium</span>
           </div>
         )}
       </div>
 
       {/* Profile Card */}
-      <div className="bg-card rounded-2xl p-5 mb-6 border border-border">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
-            {profile?.full_name?.charAt(0) || 'A'}
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
+              {profile?.full_name?.charAt(0) || 'A'}
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-foreground">{profile?.full_name || 'Usuario'}</h2>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
+            </div>
           </div>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-foreground">{profile?.full_name || 'Usuario'}</h2>
-            <p className="text-sm text-muted-foreground">{user?.email}</p>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
-          <div className="text-center">
-            <p className="text-xl font-bold text-foreground">{profile?.weight_kg || '--'}kg</p>
-            <p className="text-xs text-muted-foreground">Peso</p>
+          <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-border">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-foreground">{profile?.weight_kg || '--'}kg</p>
+              <p className="text-sm text-muted-foreground">Peso</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-foreground">{profile?.height_cm || '--'}cm</p>
+              <p className="text-sm text-muted-foreground">Altura</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-bold text-primary">
+                {goalLabels[profile?.fitness_goal as keyof typeof goalLabels] || '--'}
+              </p>
+              <p className="text-sm text-muted-foreground">Objetivo</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-xl font-bold text-foreground">{profile?.height_cm || '--'}cm</p>
-            <p className="text-xs text-muted-foreground">Altura</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xl font-bold text-primary">
-              {goalLabels[profile?.fitness_goal as keyof typeof goalLabels] || '--'}
-            </p>
-            <p className="text-xs text-muted-foreground">Objetivo</p>
-          </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Premium Upgrade */}
       {!isPremium && (
-        <button
+        <Card 
+          className="cursor-pointer border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 to-orange-500/5 hover:from-yellow-500/10 hover:to-orange-500/10 transition-colors"
           onClick={() => navigate('/premium')}
-          className="w-full bg-gradient-to-r from-yellow-500/10 to-orange-500/10 rounded-xl p-4 border border-yellow-500/30 flex items-center gap-4 hover:from-yellow-500/20 hover:to-orange-500/20 transition-colors mb-6"
         >
-          <Crown className="w-6 h-6 text-yellow-500" />
-          <div className="flex-1 text-left">
-            <span className="font-semibold text-foreground block">Hazte Premium</span>
-            <span className="text-xs text-muted-foreground">Rutinas ilimitadas, historial completo y más</span>
-          </div>
-          <ChevronRight className="w-5 h-5 text-yellow-500" />
-        </button>
+          <CardContent className="p-4 flex items-center gap-4">
+            <Crown className="w-8 h-8 text-yellow-500" />
+            <div className="flex-1">
+              <p className="font-semibold text-foreground">Hazte Premium</p>
+              <p className="text-sm text-muted-foreground">Rutinas ilimitadas, historial completo y más</p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Menu */}
-      <div className="space-y-2 mb-6">
+      <div className="grid gap-2 md:grid-cols-2">
         {menuItems.map((item, i) => (
-          <button
+          <Card 
             key={i}
+            className="cursor-pointer hover:border-primary/50 transition-colors"
             onClick={() => item.path && navigate(item.path)}
-            className="w-full bg-card rounded-xl p-4 border border-border flex items-center gap-4 hover:border-primary/50 transition-colors"
           >
-            <item.icon className="w-5 h-5 text-muted-foreground" />
-            <span className="flex-1 text-left font-medium text-foreground">{item.label}</span>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
+            <CardContent className="p-4 flex items-center gap-4">
+              <item.icon className="w-5 h-5 text-muted-foreground" />
+              <span className="font-medium text-foreground">{item.label}</span>
+            </CardContent>
+          </Card>
         ))}
       </div>
 
-      {/* Admin Panel Link */}
+      {/* Admin Panel */}
       {isAdmin && (
-        <button
+        <Card 
+          className="cursor-pointer border-purple-500/30 bg-purple-500/5 hover:bg-purple-500/10 transition-colors"
           onClick={() => navigate('/admin')}
-          className="w-full bg-gradient-to-r from-purple-500/10 to-indigo-500/10 rounded-xl p-4 border border-purple-500/30 flex items-center gap-4 hover:from-purple-500/20 hover:to-indigo-500/20 transition-colors mb-4"
         >
-          <Shield className="w-5 h-5 text-purple-500" />
-          <span className="flex-1 text-left font-medium text-foreground">Panel de administración</span>
-          <ChevronRight className="w-5 h-5 text-purple-500" />
-        </button>
-      )}
-
-      {/* Redo Onboarding */}
-      <button
-        onClick={handleRedoOnboarding}
-        className="w-full bg-secondary/50 rounded-xl p-4 border border-border flex items-center gap-4 hover:bg-secondary transition-colors mb-4"
-      >
-        <RotateCcw className="w-5 h-5 text-muted-foreground" />
-        <span className="flex-1 text-left font-medium text-foreground">Rehacer onboarding</span>
-        <ChevronRight className="w-5 h-5 text-muted-foreground" />
-      </button>
-
-      {/* Install App Button */}
-      {!isInstalled && (
-        <button
-          onClick={() => navigate('/instalar')}
-          className="w-full bg-primary/10 rounded-xl p-4 border border-primary/20 flex items-center gap-4 hover:bg-primary/20 transition-colors mb-6"
-        >
-          <Download className="w-5 h-5 text-primary" />
-          <span className="flex-1 text-left font-medium text-foreground">Instalar app</span>
-          <ChevronRight className="w-5 h-5 text-primary" />
-        </button>
+          <CardContent className="p-4 flex items-center gap-4">
+            <Shield className="w-5 h-5 text-purple-500" />
+            <span className="font-medium text-foreground">Panel de administración</span>
+          </CardContent>
+        </Card>
       )}
 
       {/* Sign Out */}
       <Button
         variant="outline"
-        className="w-full h-12 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+        className="w-full border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
         onClick={handleSignOut}
       >
-        <LogOut className="w-5 h-5 mr-2" />
+        <LogOut className="w-4 h-4 mr-2" />
         Cerrar sesión
       </Button>
     </div>
