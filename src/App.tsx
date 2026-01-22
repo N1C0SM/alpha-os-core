@@ -8,7 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { OnboardingGuard } from "@/components/auth/OnboardingGuard";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { WebLayout } from "@/components/layout/WebLayout";
 
 // Pages
 import AuthPage from "./pages/AuthPage";
@@ -17,7 +17,7 @@ import TodayPage from "./pages/TodayPage";
 import TrainingPage from "./pages/TrainingPage";
 import ActiveWorkoutPage from "./pages/ActiveWorkoutPage";
 import NutritionPage from "./pages/NutritionPage";
-import HabitsPage from "./pages/HabitsPage";
+// HabitsPage removed from MVP
 import ProfilePage from "./pages/ProfilePage";
 import PersonalDataPage from "./pages/PersonalDataPage";
 import GoalsPage from "./pages/GoalsPage";
@@ -50,11 +50,11 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
-              {/* Protected routes with bottom navigation */}
+              {/* Protected routes with web layout */}
               <Route element={
                 <ProtectedRoute>
                   <OnboardingGuard>
-                    <AppLayout />
+                    <WebLayout />
                   </OnboardingGuard>
                 </ProtectedRoute>
               }>
@@ -62,7 +62,6 @@ const App = () => (
                 <Route path="/entreno" element={<TrainingPage />} />
                 <Route path="/entreno/activo" element={<ActiveWorkoutPage />} />
                 <Route path="/nutricion" element={<NutritionPage />} />
-                <Route path="/habitos" element={<HabitsPage />} />
                 <Route path="/perfil" element={<ProfilePage />} />
                 <Route path="/perfil/datos" element={<PersonalDataPage />} />
                 <Route path="/perfil/objetivos" element={<GoalsPage />} />
