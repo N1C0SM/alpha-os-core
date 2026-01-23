@@ -13,7 +13,7 @@ interface PushPayload {
   badge?: string;
   tag?: string;
   data?: Record<string, unknown>;
-  userId?: string; // If provided, send to specific user; otherwise send to all
+  userId?: string; // If provided by admin, send to specific user; otherwise send to self
 }
 
 serve(async (req) => {
@@ -25,22 +25,78 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')!;
     const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')!;
     const vapidSubject = Deno.env.get('VAPID_SUBJECT')!;
 
+    // Authentication check
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      console.error('Missing or invalid authorization header');
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify JWT and get authenticated user
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      console.error('Invalid token:', claimsError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const authenticatedUserId = claimsData.claims.sub as string;
+    console.log('Authenticated user:', authenticatedUserId);
+
+    // Service client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const payload: PushPayload = await req.json();
     console.log('Received push notification request:', payload);
 
-    // Get subscriptions - either for specific user or all users
-    let query = supabase.from('push_subscriptions').select('*');
-    if (payload.userId) {
-      query = query.eq('user_id', payload.userId);
+    // Determine target user
+    let targetUserId = payload.userId || authenticatedUserId;
+
+    // If trying to send to someone else or broadcast (no userId = all users), check admin role
+    if (payload.userId && payload.userId !== authenticatedUserId) {
+      const { data: isAdmin, error: roleError } = await supabase.rpc('has_role', {
+        _user_id: authenticatedUserId,
+        _role: 'admin'
+      });
+
+      if (roleError) {
+        console.error('Error checking admin role:', roleError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to verify permissions' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!isAdmin) {
+        console.error('Non-admin user attempted to send to another user');
+        return new Response(
+          JSON.stringify({ error: 'Only admins can send notifications to other users' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    const { data: subscriptions, error } = await query;
+    // Get subscriptions for target user only (no broadcast to all users for non-admins)
+    const { data: subscriptions, error } = await supabase
+      .from('push_subscriptions')
+      .select('*')
+      .eq('user_id', targetUserId);
 
     if (error) {
       console.error('Error fetching subscriptions:', error);
@@ -48,14 +104,14 @@ serve(async (req) => {
     }
 
     if (!subscriptions || subscriptions.length === 0) {
-      console.log('No subscriptions found');
+      console.log('No subscriptions found for user:', targetUserId);
       return new Response(
         JSON.stringify({ success: true, sent: 0, message: 'No subscriptions found' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`Found ${subscriptions.length} subscriptions`);
+    console.log(`Found ${subscriptions.length} subscriptions for user ${targetUserId}`);
 
     // Import web-push library
     const webPush = await import("https://esm.sh/web-push@3.6.7");
