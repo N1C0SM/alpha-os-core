@@ -34,7 +34,7 @@ const AuthPage: React.FC = () => {
   const { toast } = useToast();
 
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,7 +107,7 @@ const AuthPage: React.FC = () => {
             variant: 'destructive',
           });
         } else {
-          navigate('/');
+          navigate('/dashboard');
         }
       }
     } catch (err) {

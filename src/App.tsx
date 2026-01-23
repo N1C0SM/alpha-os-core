@@ -11,6 +11,7 @@ import { OnboardingGuard } from "@/components/auth/OnboardingGuard";
 import { WebLayout } from "@/components/layout/WebLayout";
 
 // Pages
+import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import TodayPage from "./pages/TodayPage";
@@ -41,6 +42,7 @@ const App = () => (
           <SubscriptionProvider>
             <Routes>
               {/* Public routes */}
+              <Route path="/" element={<LandingPage />} />
               <Route path="/auth" element={<AuthPage />} />
               
               {/* Onboarding (requires auth but not onboarding completion) */}
@@ -58,7 +60,7 @@ const App = () => (
                   </OnboardingGuard>
                 </ProtectedRoute>
               }>
-                <Route path="/" element={<TodayPage />} />
+                <Route path="/dashboard" element={<TodayPage />} />
                 <Route path="/entreno" element={<TrainingPage />} />
                 <Route path="/entreno/activo" element={<ActiveWorkoutPage />} />
                 <Route path="/nutricion" element={<NutritionPage />} />
