@@ -24,7 +24,7 @@ const LandingPage: React.FC = () => {
                 Iniciar sesión
               </Button>
             </Link>
-            <Link to="/auth">
+            <Link to="/auth?mode=register">
               <Button size="sm" className="bg-primary hover:bg-primary/90">
                 Empezar gratis
                 <ArrowRight className="w-4 h-4 ml-1" />
@@ -54,7 +54,7 @@ const LandingPage: React.FC = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/auth">
+            <Link to="/auth?mode=register">
               <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90">
                 Empezar gratis
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -138,7 +138,7 @@ const LandingPage: React.FC = () => {
           <p className="text-muted-foreground mb-8">
             Únete a cientos de usuarios que ya entrenan en modo autopilot.
           </p>
-          <Link to="/auth">
+          <Link to="/auth?mode=register">
             <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90">
               Crear cuenta gratis
               <ArrowRight className="w-5 h-5 ml-2" />

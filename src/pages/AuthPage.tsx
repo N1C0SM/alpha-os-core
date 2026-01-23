@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +20,8 @@ const signInSchema = z.object({
 });
 
 const AuthPage: React.FC = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [isSignUp, setIsSignUp] = useState(searchParams.get('mode') === 'register');
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
