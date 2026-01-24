@@ -1442,7 +1442,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          experience_level:
+            | Database["public"]["Enums"]["experience_level"]
+            | null
+          fitness_goal: Database["public"]["Enums"]["fitness_goal"] | null
+          full_name: string | null
+          id: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          experience_level?:
+            | Database["public"]["Enums"]["experience_level"]
+            | null
+          fitness_goal?: Database["public"]["Enums"]["fitness_goal"] | null
+          full_name?: string | null
+          id?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          experience_level?:
+            | Database["public"]["Enums"]["experience_level"]
+            | null
+          fitness_goal?: Database["public"]["Enums"]["fitness_goal"] | null
+          full_name?: string | null
+          id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_followers_count: { Args: { target_user_id: string }; Returns: number }
