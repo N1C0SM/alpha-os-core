@@ -1047,9 +1047,9 @@ const TrainingPage: React.FC = () => {
             </div>
 
             {/* Auto-selected Days Display */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <p className="text-sm font-medium text-foreground">Días seleccionados automáticamente:</p>
-              <div className="flex gap-2 justify-center">
+              <div className="flex gap-3 justify-center">
                 {WEEKDAYS.map(day => {
                   const isBlocked = blockedDays.includes(day.id);
                   const hasFatigue = Object.keys(partialFatigueDays).includes(day.id);
@@ -1059,13 +1059,13 @@ const TrainingPage: React.FC = () => {
                     <div
                       key={day.id}
                       className={cn(
-                        "w-9 h-9 rounded-lg font-medium text-xs flex items-center justify-center relative",
+                        "w-12 h-12 rounded-xl font-semibold text-sm flex items-center justify-center relative transition-all",
                         isBlocked
                           ? "bg-destructive/20 text-destructive line-through"
                           : isSelected
                             ? hasFatigue 
-                              ? "bg-yellow-500 text-yellow-950"
-                              : "bg-primary text-primary-foreground"
+                              ? "bg-yellow-500 text-yellow-950 shadow-md"
+                              : "bg-primary text-primary-foreground shadow-md"
                             : "bg-secondary/50 text-muted-foreground/50"
                       )}
                       title={
@@ -1077,13 +1077,13 @@ const TrainingPage: React.FC = () => {
                       }
                     >
                       {day.short}
-                      {isBlocked && <span className="absolute -top-1 -right-1 text-[8px]">🚫</span>}
-                      {hasFatigue && !isBlocked && isSelected && <span className="absolute -top-1 -right-1 text-[8px]">⚠️</span>}
+                      {isBlocked && <span className="absolute -top-1 -right-1 text-sm">🚫</span>}
+                      {hasFatigue && !isBlocked && isSelected && <span className="absolute -top-1 -right-1 text-sm">⚠️</span>}
                     </div>
                   );
                 })}
               </div>
-              <p className="text-xs text-center text-muted-foreground">
+              <p className="text-sm text-center text-muted-foreground">
                 Basado en tu horario y recuperación muscular
               </p>
             </div>
