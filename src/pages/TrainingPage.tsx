@@ -840,33 +840,47 @@ const TrainingPage: React.FC = () => {
 
   // Main view
   return (
-    <div className="px-4 py-6 safe-top">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Entrenamiento</h1>
+    <div className="py-6 safe-top">
+      {/* Hero Header */}
+      <div className="relative mb-8 p-6 rounded-2xl bg-gradient-to-br from-primary/20 via-card to-card border border-primary/20 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,hsl(48_100%_48%/0.15),transparent_70%)]" />
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Dumbbell className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-foreground">Entrenamiento</h1>
+              <p className="text-sm text-muted-foreground">Tu progreso, tu victoria</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-secondary rounded-xl mb-6">
+      <div className="flex gap-2 p-1.5 bg-secondary/50 rounded-2xl mb-8 backdrop-blur-sm border border-border/50">
         <button
           onClick={() => setActiveTab('routines')}
           className={cn(
-            "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
+            "flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2",
             activeTab === 'routines' 
-              ? "bg-card text-foreground shadow-sm" 
-              : "text-muted-foreground"
+              ? "bg-card text-foreground shadow-lg border border-border" 
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
+          <Dumbbell className="w-4 h-4" />
           Mis Rutinas
         </button>
         <button
           onClick={() => setActiveTab('history')}
           className={cn(
-            "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
+            "flex-1 py-3 rounded-xl text-sm font-semibold transition-all flex items-center justify-center gap-2",
             activeTab === 'history' 
-              ? "bg-card text-foreground shadow-sm" 
-              : "text-muted-foreground"
+              ? "bg-card text-foreground shadow-lg border border-border" 
+              : "text-muted-foreground hover:text-foreground"
           )}
         >
+          <Calendar className="w-4 h-4" />
           Historial
         </button>
       </div>
@@ -874,20 +888,16 @@ const TrainingPage: React.FC = () => {
       {activeTab === 'routines' && (
         <>
           {/* Auto routine generation - AUTOPILOT */}
-          <Button 
-            className="w-full h-14 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground mb-6 text-base font-semibold shadow-lg"
+          <div 
             onClick={() => {
               if (!canCreateRoutine && (!workoutPlans || workoutPlans.length === 0)) {
                 setShowUpgradeModal(true);
                 return;
               }
-              // If user has no routine, create one with AI
               if (!workoutPlans || workoutPlans.length === 0) {
                 setIsNewRoutineOpen(true);
-                // Auto-trigger AI generation
                 setTimeout(() => handleGenerateRoutine('auto'), 100);
               } else {
-                // Find today's workout from existing routine
                 const today = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
                 const activeRoutine = workoutPlans[0];
                 const todayDay = activeRoutine?.workout_plan_days?.find(
@@ -897,44 +907,63 @@ const TrainingPage: React.FC = () => {
                   setViewingRoutine(activeRoutine.id);
                   setPreWorkoutDayId(todayDay.id);
                 } else {
-                  // No workout today, show routine
                   setViewingRoutine(activeRoutine.id);
                   toast({ title: 'Hoy es día de descanso 😴' });
                 }
               }
             }}
-            disabled={startSession.isPending || isGenerating}
-          >
-            {(startSession.isPending || isGenerating) ? (
-              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-            ) : (
-              <Sparkles className="w-5 h-5 mr-2" />
+            className={cn(
+              "relative w-full p-6 rounded-2xl mb-8 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]",
+              "bg-gradient-to-r from-primary via-primary/90 to-amber-500",
+              "shadow-[0_8px_32px_hsl(48_100%_48%/0.35)]",
+              (startSession.isPending || isGenerating) && "opacity-75 pointer-events-none"
             )}
-            {workoutPlans && workoutPlans.length > 0 
-              ? 'Entrenar Hoy' 
-              : 'Crear Rutina con IA'}
-          </Button>
+          >
+            <div className="absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_bottom_left,white/20,transparent_60%)]" />
+            <div className="relative flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-black/20 backdrop-blur flex items-center justify-center">
+                {(startSession.isPending || isGenerating) ? (
+                  <Loader2 className="w-7 h-7 animate-spin text-black" />
+                ) : (
+                  <Sparkles className="w-7 h-7 text-black" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-black">
+                  {workoutPlans && workoutPlans.length > 0 
+                    ? 'Entrenar Hoy' 
+                    : 'Crear Rutina con IA'}
+                </h3>
+                <p className="text-sm text-black/70">
+                  {workoutPlans && workoutPlans.length > 0 
+                    ? 'Tu entreno personalizado te espera'
+                    : 'Rutina 100% adaptada a tu perfil'}
+                </p>
+              </div>
+              <ChevronRight className="w-6 h-6 text-black/50" />
+            </div>
+          </div>
 
           {/* Routines list */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h2 className="font-semibold text-foreground">Rutinas</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-foreground">Rutinas</h2>
               {!isPremium && (
-                <span className="text-xs text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                <span className="text-xs text-muted-foreground bg-secondary px-3 py-1 rounded-full border border-border">
                   {routineCount}/{routineLimit}
                 </span>
               )}
               {isPremium && (
-                <span className="text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                <span className="text-xs text-yellow-500 bg-yellow-500/10 px-3 py-1 rounded-full flex items-center gap-1 border border-yellow-500/30">
                   <Crown className="w-3 h-3" />
                   Premium
                 </span>
               )}
             </div>
             <Button 
-              variant="ghost" 
+              variant="outline" 
               size="sm" 
-              className="text-primary"
+              className="border-primary/50 text-primary hover:bg-primary/10"
               onClick={() => {
                 if (!canCreateRoutine) {
                   setShowUpgradeModal(true);
@@ -949,31 +978,41 @@ const TrainingPage: React.FC = () => {
           </div>
 
           {workoutPlans && workoutPlans.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {workoutPlans.map((routine) => (
                 <button
                   key={routine.id}
                   onClick={() => setViewingRoutine(routine.id)}
-                  className="w-full bg-card rounded-xl border border-border p-4 text-left hover:border-primary/50 transition-colors"
+                  className="w-full bg-card rounded-2xl border border-border p-5 text-left hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 transition-all group"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-foreground">{routine.name}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {routine.workout_plan_days?.length || 0} días
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-amber-500/20 flex items-center justify-center group-hover:scale-105 transition-transform">
+                      <Dumbbell className="w-7 h-7 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">{routine.name}</h3>
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {routine.workout_plan_days?.length || 0} días
+                        </span>
+                        <span className="text-border">•</span>
+                        <span>{routine.description || 'Rutina personalizada'}</span>
                       </p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    <ChevronRight className="w-6 h-6 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                   </div>
                 </button>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-card rounded-xl border border-dashed border-border">
-              <Sparkles className="w-10 h-10 text-primary mx-auto mb-3" />
-              <p className="text-muted-foreground mb-2">Aún no tienes rutina</p>
-              <p className="text-xs text-muted-foreground mb-4">El sistema creará una basada en tu perfil y objetivo</p>
-              <Button onClick={handleCreateRoutineWithAI} className="bg-primary text-primary-foreground">
+            <div className="text-center py-16 bg-gradient-to-br from-card to-secondary/30 rounded-2xl border border-dashed border-primary/30">
+              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="w-10 h-10 text-primary" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-2">Aún no tienes rutina</h3>
+              <p className="text-muted-foreground mb-6 max-w-sm mx-auto">El sistema creará una rutina 100% personalizada basada en tu perfil y objetivo</p>
+              <Button onClick={handleCreateRoutineWithAI} className="bg-primary text-primary-foreground shadow-lg shadow-primary/25">
                 <Sparkles className="w-4 h-4 mr-2" />
                 Crear Rutina con IA
               </Button>
@@ -985,32 +1024,40 @@ const TrainingPage: React.FC = () => {
       {activeTab === 'history' && (
         <>
           {sessions && sessions.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {sessions.map((session) => (
-                <div key={session.id} className="bg-card rounded-xl border border-border p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-semibold text-foreground">
-                      {session.workout_plan_days?.name || 'Entreno libre'}
-                    </h3>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(session.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    {session.duration_minutes && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {session.duration_minutes} min
-                      </span>
-                    )}
+                <div key={session.id} className="bg-card rounded-2xl border border-border p-5 hover:border-primary/30 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center">
+                      <Check className="w-6 h-6 text-green-500" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-bold text-foreground">
+                        {session.workout_plan_days?.name || 'Entreno libre'}
+                      </h3>
+                      <p className="text-sm text-muted-foreground flex items-center gap-2">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(session.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
+                        {session.duration_minutes && (
+                          <>
+                            <span className="text-border">•</span>
+                            <Clock className="w-3.5 h-3.5" />
+                            {session.duration_minutes} min
+                          </>
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-card rounded-xl border border-dashed border-border">
-              <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-              <p className="text-muted-foreground">Sin entrenos registrados</p>
+            <div className="text-center py-16 bg-gradient-to-br from-card to-secondary/30 rounded-2xl border border-dashed border-border">
+              <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-6">
+                <Calendar className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-2">Sin entrenos registrados</h3>
+              <p className="text-muted-foreground">Completa tu primer entreno para ver tu historial</p>
             </div>
           )}
         </>

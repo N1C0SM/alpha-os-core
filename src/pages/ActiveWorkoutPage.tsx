@@ -531,54 +531,61 @@ const ActiveWorkoutPage: React.FC = () => {
   return (
     <>
       <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background border-b border-border px-4 py-3 safe-top">
-        <div className="flex items-center justify-between">
+      {/* Header - Premium gradient */}
+      <div className="sticky top-0 z-10 bg-gradient-to-b from-card to-background border-b border-border px-4 py-4 safe-top">
+        <div className="flex items-center justify-between mb-3">
           <Button 
-            variant="destructive" 
+            variant="outline" 
             size="sm"
+            className="border-destructive/50 text-destructive hover:bg-destructive/10"
             onClick={() => setIsCancelDialogOpen(true)}
           >
             <X className="w-4 h-4 mr-1" />
             Cancelar
           </Button>
           
-          <div className="flex items-center gap-2 text-foreground bg-secondary px-3 py-1.5 rounded-full">
-            <Clock className="w-4 h-4" />
-            <span className="font-mono text-lg font-semibold">{formatTime(elapsedTime)}</span>
+          <div className="flex items-center gap-2 text-foreground bg-secondary/80 backdrop-blur px-4 py-2 rounded-full border border-border">
+            <Clock className="w-4 h-4 text-primary" />
+            <span className="font-mono text-xl font-bold">{formatTime(elapsedTime)}</span>
           </div>
           
           <Button 
             size="sm"
             onClick={handleFinishWorkout}
             disabled={completeSession.isPending || totalCompletedSets === 0}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
           >
             <Check className="w-4 h-4 mr-1" />
             Finalizar
           </Button>
         </div>
-      </div>
 
-      {/* Stats bar */}
-      <div className="px-4 py-2 bg-card border-b border-border flex items-center justify-around text-center">
-        <div>
-          <p className="text-2xl font-bold text-foreground">{exercises.length}</p>
-          <p className="text-xs text-muted-foreground">Ejercicios</p>
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-foreground">{totalCompletedSets}</p>
-          <p className="text-xs text-muted-foreground">Series</p>
+        {/* Stats bar - Modern cards */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-secondary/50 backdrop-blur rounded-xl p-3 border border-border/50 text-center">
+            <p className="text-3xl font-bold text-foreground">{exercises.length}</p>
+            <p className="text-xs text-muted-foreground font-medium">Ejercicios</p>
+          </div>
+          <div className="bg-secondary/50 backdrop-blur rounded-xl p-3 border border-border/50 text-center">
+            <div className="flex items-center justify-center gap-1">
+              <p className="text-3xl font-bold text-primary">{totalCompletedSets}</p>
+              <Flame className="w-5 h-5 text-primary animate-pulse" />
+            </div>
+            <p className="text-xs text-muted-foreground font-medium">Series completadas</p>
+          </div>
         </div>
       </div>
 
       {/* Exercise list */}
-      <div className="flex-1 overflow-auto px-4 py-4 pb-24">
+      <div className="flex-1 overflow-auto px-4 py-6 pb-24">
         {exercises.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Dumbbell className="w-12 h-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground mb-4">No hay ejercicios aún</p>
-            <Button onClick={() => setIsAddExerciseOpen(true)} className="bg-primary text-primary-foreground">
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+              <Dumbbell className="w-10 h-10 text-primary/50" />
+            </div>
+            <h3 className="text-lg font-semibold text-foreground mb-2">No hay ejercicios aún</h3>
+            <p className="text-muted-foreground mb-6 max-w-xs">Añade ejercicios para comenzar tu entreno</p>
+            <Button onClick={() => setIsAddExerciseOpen(true)} className="bg-primary text-primary-foreground shadow-lg shadow-primary/25">
               <Plus className="w-4 h-4 mr-2" />
               Añadir ejercicio
             </Button>
@@ -586,49 +593,62 @@ const ActiveWorkoutPage: React.FC = () => {
         ) : (
           <div className="space-y-4">
             {exercises.map((exercise, exerciseIdx) => (
-              <div key={exercise.id} className="bg-card rounded-xl border border-border overflow-hidden p-4">
-                {/* Exercise header with image */}
-                <div className="flex items-center gap-3 mb-3">
-                  <ExerciseImage exerciseName={exercise.name} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-foreground truncate">{exercise.name}</h3>
-                    <p className="text-xs text-muted-foreground">
-                      {exercise.sets.filter(s => s.completed).length}/{exercise.sets.length} series
-                      {exercise.targetRepsMin && exercise.targetRepsMax && (
-                        <span className="ml-1">• {exercise.targetRepsMin}-{exercise.targetRepsMax} reps</span>
-                      )}
-                    </p>
+              <div 
+                key={exercise.id} 
+                className="bg-card rounded-2xl border border-border overflow-hidden shadow-lg"
+              >
+                {/* Exercise header with image - Premium style */}
+                <div className="p-4 bg-gradient-to-r from-card via-card to-secondary/30">
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <ExerciseImage exerciseName={exercise.name} size="md" />
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shadow-lg">
+                        {exercise.sets.filter(s => s.completed).length}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-lg text-foreground truncate">{exercise.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {exercise.sets.filter(s => s.completed).length}/{exercise.sets.length} series
+                        {exercise.targetRepsMin && exercise.targetRepsMax && (
+                          <span className="ml-2 text-primary">• {exercise.targetRepsMin}-{exercise.targetRepsMax} reps</span>
+                        )}
+                      </p>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-destructive/70 hover:text-destructive hover:bg-destructive/10 h-10 w-10"
+                      onClick={() => handleRemoveExercise(exerciseIdx)}
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </Button>
                   </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="text-destructive h-8 w-8"
-                    onClick={() => handleRemoveExercise(exerciseIdx)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
                 </div>
 
                 {/* Progression suggestion */}
                 {progressions?.[exercise.exerciseId]?.shouldProgress && (
-                  <div className="flex items-center gap-2 text-xs bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg px-3 py-2 mb-3">
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    <span className="font-medium">
+                  <div className="mx-4 mt-3 flex items-center gap-2 text-sm bg-gradient-to-r from-green-500/10 to-emerald-500/10 text-green-500 rounded-xl px-4 py-3 border border-green-500/20">
+                    <TrendingUp className="w-4 h-4" />
+                    <span className="font-semibold">
                       ¡Sube a {progressions[exercise.exerciseId].suggestedWeight}kg! 
                     </span>
+                    <ArrowUp className="w-4 h-4 ml-auto" />
                   </div>
                 )}
 
                 {/* Header row */}
-                <div className="grid grid-cols-[44px_1fr_1fr_44px] gap-2 text-[10px] text-muted-foreground px-1 mb-2">
-                  <span className="text-center">SET</span>
-                  <span className="text-center">KG</span>
-                  <span className="text-center">REPS</span>
-                  <span className="text-center">✓</span>
+                <div className="px-4 pt-4">
+                  <div className="grid grid-cols-[48px_1fr_1fr_48px] gap-3 text-xs font-semibold text-muted-foreground px-1 mb-3">
+                    <span className="text-center">SET</span>
+                    <span className="text-center">KG</span>
+                    <span className="text-center">REPS</span>
+                    <span className="text-center">✓</span>
+                  </div>
                 </div>
 
                 {/* Sets - always visible */}
-                <div className="space-y-1.5">
+                <div className="px-4 pb-4 space-y-2">
                   {exercise.sets.map((set, setIdx) => {
                     const isWarmup = set.isWarmup;
                     const workingSetNumber = setIdx + 1 - exercise.sets.filter((s, i) => i < setIdx && s.isWarmup).length;
@@ -637,11 +657,12 @@ const ActiveWorkoutPage: React.FC = () => {
                       <div 
                         key={set.id}
                         className={cn(
-                          "grid grid-cols-[44px_1fr_1fr_44px] gap-2 items-center py-2 px-1 rounded-lg",
-                          set.completed && "bg-green-500/10",
-                          isWarmup && "bg-orange-500/10",
-                          set.setType === 'dropset' && "bg-purple-500/10 border-l-2 border-purple-500",
-                          set.setType === 'superset' && "bg-blue-500/10 border-l-2 border-blue-500"
+                          "grid grid-cols-[48px_1fr_1fr_48px] gap-3 items-center py-2.5 px-2 rounded-xl transition-all",
+                          set.completed && "bg-gradient-to-r from-green-500/15 to-emerald-500/10 border border-green-500/20",
+                          isWarmup && "bg-orange-500/10 border border-orange-500/20",
+                          set.setType === 'dropset' && "bg-purple-500/10 border-l-4 border-purple-500",
+                          set.setType === 'superset' && "bg-blue-500/10 border-l-4 border-blue-500",
+                          !set.completed && !isWarmup && !set.setType && "bg-secondary/30"
                         )}
                       >
                         {/* Set number - tap to mark as max */}
@@ -655,15 +676,17 @@ const ActiveWorkoutPage: React.FC = () => {
                             }
                           }}
                           className={cn(
-                            "h-10 w-10 rounded-lg mx-auto flex items-center justify-center cursor-pointer select-none transition-all",
-                            set.isMaxSet ? "bg-yellow-500 text-black" : "bg-secondary",
+                            "h-11 w-11 rounded-xl mx-auto flex items-center justify-center cursor-pointer select-none transition-all shadow-sm",
+                            set.isMaxSet 
+                              ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-black shadow-lg shadow-yellow-500/30" 
+                              : "bg-secondary/80 hover:bg-secondary",
                             !isWarmup && "active:scale-90"
                           )}
                           aria-label={set.isMaxSet ? "Quitar set máximo" : "Marcar set máximo"}
                         >
                           <span
                             className={cn(
-                              "text-sm font-bold pointer-events-none",
+                              "text-base font-bold pointer-events-none",
                               isWarmup ? "text-orange-500" : set.isMaxSet ? "text-black" : "text-foreground"
                             )}
                           >
@@ -678,7 +701,7 @@ const ActiveWorkoutPage: React.FC = () => {
                           placeholder="0"
                           value={set.weight}
                           onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'weight', e.target.value)}
-                          className="h-10 text-center text-base font-semibold bg-secondary border-0 rounded-lg"
+                          className="h-11 text-center text-lg font-bold bg-secondary/80 border-0 rounded-xl focus:ring-2 focus:ring-primary"
                         />
                         
                         {/* Reps */}
@@ -688,7 +711,7 @@ const ActiveWorkoutPage: React.FC = () => {
                           placeholder="0"
                           value={set.reps}
                           onChange={(e) => handleSetChange(exerciseIdx, setIdx, 'reps', e.target.value)}
-                          className="h-10 text-center text-base font-semibold bg-secondary border-0 rounded-lg"
+                          className="h-11 text-center text-lg font-bold bg-secondary/80 border-0 rounded-xl focus:ring-2 focus:ring-primary"
                         />
                         
                         {/* Complete button */}
