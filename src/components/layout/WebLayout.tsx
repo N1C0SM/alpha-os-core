@@ -54,20 +54,22 @@ const AppSidebar: React.FC = () => {
       </SidebarHeader>
 
       {/* Navigation */}
-      <SidebarContent>
+      <SidebarContent className="px-3 py-4">
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-2">
               {navItems.map(({ path, label, icon: Icon }) => (
                 <SidebarMenuItem key={path}>
                   <SidebarMenuButton
                     asChild
                     isActive={isActive(path)}
                     tooltip={label}
+                    size="lg"
+                    className="h-11"
                   >
                     <NavLink to={path}>
                       <Icon className="w-5 h-5" />
-                      <span>{label}</span>
+                      <span className="text-base">{label}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -78,14 +80,16 @@ const AppSidebar: React.FC = () => {
       </SidebarContent>
 
       {/* Footer */}
-      <SidebarFooter className="p-2">
-        <SidebarMenu>
+      <SidebarFooter className="px-3 py-4">
+        <SidebarMenu className="gap-2">
           {/* Premium Button */}
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               tooltip={isPremium ? 'Premium Activo' : 'Upgrade a Premium'}
+              size="lg"
               className={cn(
+                'h-11',
                 isPremium 
                   ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30' 
                   : 'text-yellow-500 hover:bg-yellow-500/10'
@@ -93,7 +97,7 @@ const AppSidebar: React.FC = () => {
             >
               <NavLink to="/premium">
                 {isPremium ? <Crown className="w-5 h-5" /> : <Zap className="w-5 h-5" />}
-                <span>{isPremium ? 'Premium' : 'Upgrade'}</span>
+                <span className="text-base">{isPremium ? 'Premium' : 'Upgrade'}</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -104,10 +108,12 @@ const AppSidebar: React.FC = () => {
               asChild
               isActive={location.pathname === '/perfil/config'}
               tooltip="Configuración"
+              size="lg"
+              className="h-11"
             >
               <NavLink to="/perfil/config">
                 <Settings className="w-5 h-5" />
-                <span>Configuración</span>
+                <span className="text-base">Configuración</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>
