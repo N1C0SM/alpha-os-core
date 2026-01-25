@@ -3,11 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
-interface MealLogEntry {
+export type MealTime = 'desayuno' | 'media_manana' | 'comida' | 'cena';
+
+export interface MealLogEntry {
   id: string;
   user_id: string;
   date: string;
-  meal_type: string;
+  meal_name: string;
+  meal_time: MealTime;
   protein_grams: number;
   carbs_grams: number;
   fat_grams: number;
@@ -16,15 +19,41 @@ interface MealLogEntry {
   created_at: string;
 }
 
-interface LogMealInput {
+export interface LogMealInput {
   date: string;
-  mealType?: string;
+  mealName: string;
+  mealTime: MealTime;
   protein: number;
   carbs: number;
   fat: number;
   calories: number;
   blocks?: any[];
 }
+
+// Predefined meals with estimated macros
+export const PREDEFINED_MEALS = [
+  { name: 'Garbanzos', protein: 15, carbs: 45, fat: 6, calories: 294 },
+  { name: 'Alubias', protein: 14, carbs: 40, fat: 1, calories: 225 },
+  { name: 'Pasta', protein: 12, carbs: 75, fat: 2, calories: 366 },
+  { name: 'Pasta con salmón', protein: 35, carbs: 70, fat: 15, calories: 555 },
+  { name: 'Arroz a la cubana', protein: 12, carbs: 65, fat: 10, calories: 398 },
+  { name: 'Frixuelos', protein: 8, carbs: 35, fat: 12, calories: 280 },
+  { name: 'Rosquillas', protein: 5, carbs: 40, fat: 15, calories: 315 },
+  { name: 'Tortilla francesa de queso', protein: 18, carbs: 2, fat: 20, calories: 260 },
+  { name: 'Plátano', protein: 1, carbs: 27, fat: 0, calories: 105 },
+  { name: 'Manzana', protein: 0, carbs: 25, fat: 0, calories: 95 },
+  { name: 'Tostadas con aguacate', protein: 5, carbs: 25, fat: 15, calories: 255 },
+  { name: 'Yogur con granola', protein: 10, carbs: 35, fat: 8, calories: 252 },
+  { name: 'Ensalada de pollo', protein: 30, carbs: 10, fat: 12, calories: 268 },
+  { name: 'Batido de proteínas', protein: 25, carbs: 5, fat: 2, calories: 138 },
+] as const;
+
+export const MEAL_TIME_LABELS: Record<MealTime, string> = {
+  desayuno: 'Desayuno',
+  media_manana: 'Media mañana',
+  comida: 'Comida',
+  cena: 'Cena',
+};
 
 export function useMealLogs(date: string) {
   const { user } = useAuth();
@@ -47,18 +76,29 @@ export function useMealLogs(date: string) {
       }
 
       // Transform the data to match our interface
-      return (data || []).map((log: any) => ({
-        id: log.id,
-        user_id: log.user_id,
-        date: log.date,
-        meal_type: log.meal_id || 'custom',
-        protein_grams: log.notes ? JSON.parse(log.notes)?.protein_grams || 0 : 0,
-        carbs_grams: log.notes ? JSON.parse(log.notes)?.carbs_grams || 0 : 0,
-        fat_grams: log.notes ? JSON.parse(log.notes)?.fat_grams || 0 : 0,
-        calories: log.notes ? JSON.parse(log.notes)?.calories || 0 : 0,
-        blocks_data: log.notes ? JSON.parse(log.notes)?.blocks_data || [] : [],
-        created_at: log.created_at,
-      }));
+      return (data || []).map((log: any) => {
+        let parsedNotes = { protein_grams: 0, carbs_grams: 0, fat_grams: 0, calories: 0, blocks_data: [], meal_name: 'Comida', meal_time: 'comida' as MealTime };
+        try {
+          if (log.notes) {
+            parsedNotes = { ...parsedNotes, ...JSON.parse(log.notes) };
+          }
+        } catch (e) {
+          console.error('Error parsing meal notes:', e);
+        }
+        return {
+          id: log.id,
+          user_id: log.user_id,
+          date: log.date,
+          meal_name: parsedNotes.meal_name || 'Comida',
+          meal_time: parsedNotes.meal_time || 'comida',
+          protein_grams: parsedNotes.protein_grams || 0,
+          carbs_grams: parsedNotes.carbs_grams || 0,
+          fat_grams: parsedNotes.fat_grams || 0,
+          calories: parsedNotes.calories || 0,
+          blocks_data: parsedNotes.blocks_data || [],
+          created_at: log.created_at,
+        };
+      });
     },
     enabled: !!user,
   });
@@ -97,6 +137,8 @@ export function useLogMeal() {
 
       // Store macro data in the notes field as JSON
       const notesData = JSON.stringify({
+        meal_name: input.mealName,
+        meal_time: input.mealTime,
         protein_grams: input.protein,
         carbs_grams: input.carbs,
         fat_grams: input.fat,
