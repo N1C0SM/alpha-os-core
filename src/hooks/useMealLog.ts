@@ -43,8 +43,6 @@ export const PREDEFINED_MEALS = [
   { name: 'Plátano', protein: 1, carbs: 27, fat: 0, calories: 105 },
   { name: 'Manzana', protein: 0, carbs: 25, fat: 0, calories: 95 },
   { name: 'Tostadas con aguacate', protein: 5, carbs: 25, fat: 15, calories: 255 },
-  { name: 'Yogur con granola', protein: 10, carbs: 35, fat: 8, calories: 252 },
-  { name: 'Ensalada de pollo', protein: 30, carbs: 10, fat: 12, calories: 268 },
   { name: 'Batido de proteínas', protein: 25, carbs: 5, fat: 2, calories: 138 },
 ] as const;
 
