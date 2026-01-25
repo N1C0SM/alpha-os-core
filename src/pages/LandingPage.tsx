@@ -53,17 +53,12 @@ const LandingPage: React.FC = () => {
             progresión y nutrición por ti. Tú solo ejecutas.
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/auth?mode=register">
-              <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90">
-                Empezar gratis
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </Link>
-            <Button size="lg" variant="outline" className="h-12 px-8 text-base">
-              Ver demo
+          <Link to="/auth?mode=register">
+            <Button size="lg" className="h-12 px-8 text-base bg-primary hover:bg-primary/90">
+              Empezar gratis
+              <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
-          </div>
+          </Link>
         </div>
       </section>
 
