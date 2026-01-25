@@ -42,8 +42,6 @@ export const PREDEFINED_MEALS = [
   { name: 'Tortilla francesa de queso', protein: 18, carbs: 2, fat: 20, calories: 260 },
   { name: 'Plátano', protein: 1, carbs: 27, fat: 0, calories: 105 },
   { name: 'Manzana', protein: 0, carbs: 25, fat: 0, calories: 95 },
-  { name: 'Tostadas con aguacate', protein: 5, carbs: 25, fat: 15, calories: 255 },
-  { name: 'Batido de proteínas', protein: 25, carbs: 5, fat: 2, calories: 138 },
 ] as const;
 
 export const MEAL_TIME_LABELS: Record<MealTime, string> = {
