@@ -132,6 +132,51 @@ export function useSaveCustomMeal() {
   });
 }
 
+// Hook to update a custom meal
+export function useUpdateCustomMeal() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (input: { id: string; name: string; protein: number; carbs: number; fat: number; calories: number }) => {
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('user_custom_meals')
+        .update({
+          name: input.name,
+          protein_grams: input.protein,
+          carbs_grams: input.carbs,
+          fat_grams: input.fat,
+          calories: input.calories,
+        })
+        .eq('id', input.id)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['custom-meals', user?.id] });
+      toast({
+        title: '¡Comida actualizada!',
+        description: 'Los macros han sido modificados',
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating custom meal:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar la comida',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
 // Hook to delete a custom meal
 export function useDeleteCustomMeal() {
   const { user } = useAuth();
