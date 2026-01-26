@@ -1106,6 +1106,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_custom_meals: {
+        Row: {
+          calories: number
+          carbs_grams: number
+          created_at: string
+          fat_grams: number
+          id: string
+          name: string
+          protein_grams: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calories?: number
+          carbs_grams?: number
+          created_at?: string
+          fat_grams?: number
+          id?: string
+          name: string
+          protein_grams?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calories?: number
+          carbs_grams?: number
+          created_at?: string
+          fat_grams?: number
+          id?: string
+          name?: string
+          protein_grams?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_follows: {
         Row: {
           created_at: string

@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Check, Droplets, UtensilsCrossed, Flame, Trash2, Plus, Search, Clock, Coffee, Sun, Utensils, Moon } from 'lucide-react';
+import { Check, Droplets, UtensilsCrossed, Flame, Trash2, Plus, Search, Coffee, Sun, Utensils, Moon, Save, Heart } from 'lucide-react';
 import { useHydrationLog, useUpdateHydration } from '@/hooks/useNutrition';
 import { useProfile, useUserSchedule } from '@/hooks/useProfile';
 import { useFoodPreferences } from '@/hooks/useFoodPreferences';
 import { getHydrationRecommendation, getMacroRecommendation } from '@/services/decision-engine/habit-recommendations';
-import { useDailyMacros, useLogMeal, useMealLogs, useDeleteMealLog, PREDEFINED_MEALS, MEAL_TIME_LABELS, MealTime } from '@/hooks/useMealLog';
+import { useDailyMacros, useLogMeal, useMealLogs, useDeleteMealLog, PREDEFINED_MEALS, MEAL_TIME_LABELS, MealTime, useCustomMeals, useSaveCustomMeal, useDeleteCustomMeal } from '@/hooks/useMealLog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader, StatCard, ProgressBar, EmptyState } from '@/components/ui/saas-components';
@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const MEAL_TIME_ICONS: Record<MealTime, typeof Coffee> = {
   desayuno: Coffee,
@@ -34,8 +35,9 @@ const NutritionPage: React.FC = () => {
   const [isAddMealOpen, setIsAddMealOpen] = useState(false);
   const [selectedMealTime, setSelectedMealTime] = useState<MealTime>('comida');
   const [mealName, setMealName] = useState('');
-  const [newMeal, setNewMeal] = useState({ protein: '', carbs: '', fat: '' });
+  const [newMeal, setNewMeal] = useState({ protein: '', carbs: '', fat: '', calories: '' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [saveAsCustom, setSaveAsCustom] = useState(false);
 
   const { data: profile } = useProfile();
   const { data: schedule } = useUserSchedule();
@@ -47,6 +49,9 @@ const NutritionPage: React.FC = () => {
   const deleteMealLog = useDeleteMealLog();
   const { data: mealLogs } = useMealLogs(today);
   const dailyMacros = useDailyMacros(today);
+  const { data: customMeals } = useCustomMeals();
+  const saveCustomMeal = useSaveCustomMeal();
+  const deleteCustomMeal = useDeleteCustomMeal();
 
   const hydration = getHydrationRecommendation(
     profile?.weight_kg || 75,
@@ -71,14 +76,29 @@ const NutritionPage: React.FC = () => {
 
   const consumedWaterL = (hydrationLog?.consumed_ml || 0) / 1000;
 
-  // Filter predefined meals by search
+  // Combine predefined and custom meals for search
+  const allMeals = useMemo(() => {
+    const predefined = PREDEFINED_MEALS.map(m => ({ ...m, isCustom: false, id: undefined as string | undefined }));
+    const custom = (customMeals || []).map(m => ({
+      name: m.name,
+      protein: m.protein_grams,
+      carbs: m.carbs_grams,
+      fat: m.fat_grams,
+      calories: m.calories,
+      isCustom: true,
+      id: m.id as string | undefined,
+    }));
+    return [...custom, ...predefined];
+  }, [customMeals]);
+
+  // Filter meals by search
   const filteredMeals = useMemo(() => {
-    if (!searchQuery.trim()) return PREDEFINED_MEALS;
+    if (!searchQuery.trim()) return allMeals;
     const query = searchQuery.toLowerCase();
-    return PREDEFINED_MEALS.filter(meal => 
+    return allMeals.filter(meal => 
       meal.name.toLowerCase().includes(query)
     );
-  }, [searchQuery]);
+  }, [searchQuery, allMeals]);
 
   const handleAddWater = (amount: number) => {
     updateHydration.mutate({ date: today, amount });
@@ -88,13 +108,15 @@ const NutritionPage: React.FC = () => {
     const protein = parseInt(newMeal.protein) || 0;
     const carbs = parseInt(newMeal.carbs) || 0;
     const fat = parseInt(newMeal.fat) || 0;
-    const calories = protein * 4 + carbs * 4 + fat * 9;
+    // Allow manual calories or auto-calculate
+    const calories = newMeal.calories ? parseInt(newMeal.calories) : protein * 4 + carbs * 4 + fat * 9;
 
     if (!mealName.trim()) {
       toast({ title: 'Error', description: 'Introduce un nombre para la comida', variant: 'destructive' });
       return;
     }
 
+    // Log the meal
     logMeal.mutate({
       date: today,
       mealName: mealName.trim(),
@@ -106,10 +128,21 @@ const NutritionPage: React.FC = () => {
       blocks: [],
     });
 
+    // Optionally save as custom meal for reuse
+    if (saveAsCustom) {
+      saveCustomMeal.mutate({
+        name: mealName.trim(),
+        protein,
+        carbs,
+        fat,
+        calories,
+      });
+    }
+
     resetForm();
   };
 
-  const handleLogPredefinedMeal = (meal: typeof PREDEFINED_MEALS[number]) => {
+  const handleLogPredefinedMeal = (meal: { name: string; protein: number; carbs: number; fat: number; calories: number }) => {
     logMeal.mutate({
       date: today,
       mealName: meal.name,
@@ -126,9 +159,15 @@ const NutritionPage: React.FC = () => {
 
   const resetForm = () => {
     setMealName('');
-    setNewMeal({ protein: '', carbs: '', fat: '' });
+    setNewMeal({ protein: '', carbs: '', fat: '', calories: '' });
     setSearchQuery('');
+    setSaveAsCustom(false);
     setIsAddMealOpen(false);
+  };
+
+  const handleDeleteCustomMeal = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    deleteCustomMeal.mutate(id);
   };
 
   const handleDeleteMeal = (id: string) => {
@@ -227,7 +266,49 @@ const NutritionPage: React.FC = () => {
                 </div>
                 
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-                  {filteredMeals.map((meal) => (
+                  {/* Custom meals section */}
+                  {filteredMeals.some(m => m.isCustom) && (
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Heart className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-muted-foreground">Mis comidas</span>
+                      </div>
+                      {filteredMeals.filter(m => m.isCustom).map((meal) => (
+                        <button
+                          key={meal.id}
+                          onClick={() => handleLogPredefinedMeal(meal)}
+                          className="w-full p-3 rounded-lg border border-primary/30 bg-primary/5 hover:border-primary/50 hover:bg-primary/10 transition-all text-left group mb-2"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium text-foreground group-hover:text-primary transition-colors">
+                              {meal.name}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground">
+                                {meal.calories} kcal
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => handleDeleteCustomMeal(meal.id!, e)}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
+                            <span className="text-red-400">{meal.protein}g prot</span>
+                            <span className="text-amber-400">{meal.carbs}g carbs</span>
+                            <span className="text-yellow-400">{meal.fat}g grasa</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Predefined meals */}
+                  {filteredMeals.filter(m => !m.isCustom).map((meal) => (
                     <button
                       key={meal.name}
                       onClick={() => handleLogPredefinedMeal(meal)}
@@ -258,7 +339,7 @@ const NutritionPage: React.FC = () => {
               </TabsContent>
               
               {/* Custom Meal */}
-              <TabsContent value="custom" className="space-y-4 mt-4">
+              <TabsContent value="custom" className="space-y-4 mt-4 overflow-y-auto">
                 <div>
                   <Label>Nombre de la comida</Label>
                   <Input
@@ -268,7 +349,7 @@ const NutritionPage: React.FC = () => {
                   />
                 </div>
                 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Proteína (g)</Label>
                     <Input 
@@ -279,7 +360,7 @@ const NutritionPage: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <Label>Carbos (g)</Label>
+                    <Label>Carbohidratos (g)</Label>
                     <Input 
                       type="number" 
                       placeholder="0"
@@ -296,19 +377,38 @@ const NutritionPage: React.FC = () => {
                       onChange={(e) => setNewMeal(prev => ({ ...prev, fat: e.target.value }))}
                     />
                   </div>
-                </div>
-                
-                {/* Preview */}
-                {(newMeal.protein || newMeal.carbs || newMeal.fat) && (
-                  <div className="p-3 rounded-lg bg-secondary/50 text-center">
-                    <span className="text-lg font-bold text-foreground">
-                      {(parseInt(newMeal.protein) || 0) * 4 + (parseInt(newMeal.carbs) || 0) * 4 + (parseInt(newMeal.fat) || 0) * 9} kcal
+                  <div>
+                    <Label>Calorías (kcal)</Label>
+                    <Input 
+                      type="number" 
+                      placeholder={String((parseInt(newMeal.protein) || 0) * 4 + (parseInt(newMeal.carbs) || 0) * 4 + (parseInt(newMeal.fat) || 0) * 9)}
+                      value={newMeal.calories}
+                      onChange={(e) => setNewMeal(prev => ({ ...prev, calories: e.target.value }))}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      Auto: {(parseInt(newMeal.protein) || 0) * 4 + (parseInt(newMeal.carbs) || 0) * 4 + (parseInt(newMeal.fat) || 0) * 9} kcal
                     </span>
                   </div>
-                )}
+                </div>
+                
+                {/* Save for reuse checkbox */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="saveAsCustom" 
+                    checked={saveAsCustom}
+                    onCheckedChange={(checked) => setSaveAsCustom(checked === true)}
+                  />
+                  <label 
+                    htmlFor="saveAsCustom" 
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    Guardar en "Mis comidas" para reutilizar
+                  </label>
+                </div>
                 
                 <Button onClick={handleLogCustomMeal} className="w-full" disabled={!mealName.trim()}>
-                  Guardar comida
+                  <Plus className="w-4 h-4 mr-2" />
+                  Registrar comida
                 </Button>
               </TabsContent>
             </Tabs>
