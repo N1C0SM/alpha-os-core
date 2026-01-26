@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Check, Droplets, UtensilsCrossed, Flame, Trash2, Plus, Search, Coffee, Sun, Utensils, Moon, Save, Heart } from 'lucide-react';
+import { Check, Droplets, UtensilsCrossed, Flame, Trash2, Plus, Search, Coffee, Sun, Utensils, Moon, Save, Heart, Pencil } from 'lucide-react';
 import { useHydrationLog, useUpdateHydration } from '@/hooks/useNutrition';
 import { useProfile, useUserSchedule } from '@/hooks/useProfile';
 import { useFoodPreferences } from '@/hooks/useFoodPreferences';
 import { getHydrationRecommendation, getMacroRecommendation } from '@/services/decision-engine/habit-recommendations';
-import { useDailyMacros, useLogMeal, useMealLogs, useDeleteMealLog, PREDEFINED_MEALS, MEAL_TIME_LABELS, MealTime, useCustomMeals, useSaveCustomMeal, useDeleteCustomMeal } from '@/hooks/useMealLog';
+import { useDailyMacros, useLogMeal, useMealLogs, useDeleteMealLog, PREDEFINED_MEALS, MEAL_TIME_LABELS, MealTime, useCustomMeals, useSaveCustomMeal, useDeleteCustomMeal, useUpdateCustomMeal, CustomMeal } from '@/hooks/useMealLog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader, StatCard, ProgressBar, EmptyState } from '@/components/ui/saas-components';
@@ -38,6 +38,8 @@ const NutritionPage: React.FC = () => {
   const [newMeal, setNewMeal] = useState({ protein: '', carbs: '', fat: '', calories: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [saveAsCustom, setSaveAsCustom] = useState(false);
+  const [editingMeal, setEditingMeal] = useState<CustomMeal | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', protein: '', carbs: '', fat: '', calories: '' });
 
   const { data: profile } = useProfile();
   const { data: schedule } = useUserSchedule();
@@ -52,6 +54,7 @@ const NutritionPage: React.FC = () => {
   const { data: customMeals } = useCustomMeals();
   const saveCustomMeal = useSaveCustomMeal();
   const deleteCustomMeal = useDeleteCustomMeal();
+  const updateCustomMeal = useUpdateCustomMeal();
 
   const hydration = getHydrationRecommendation(
     profile?.weight_kg || 75,
@@ -168,6 +171,44 @@ const NutritionPage: React.FC = () => {
   const handleDeleteCustomMeal = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     deleteCustomMeal.mutate(id);
+  };
+
+  const handleEditCustomMeal = (meal: { id: string; name: string; protein: number; carbs: number; fat: number; calories: number }, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const customMeal = customMeals?.find(m => m.id === meal.id);
+    if (customMeal) {
+      setEditingMeal(customMeal);
+      setEditForm({
+        name: customMeal.name,
+        protein: String(customMeal.protein_grams),
+        carbs: String(customMeal.carbs_grams),
+        fat: String(customMeal.fat_grams),
+        calories: String(customMeal.calories),
+      });
+    }
+  };
+
+  const handleSaveEditedMeal = () => {
+    if (!editingMeal) return;
+    
+    const protein = parseInt(editForm.protein) || 0;
+    const carbs = parseInt(editForm.carbs) || 0;
+    const fat = parseInt(editForm.fat) || 0;
+    const calories = editForm.calories ? parseInt(editForm.calories) : protein * 4 + carbs * 4 + fat * 9;
+
+    updateCustomMeal.mutate({
+      id: editingMeal.id,
+      name: editForm.name.trim(),
+      protein,
+      carbs,
+      fat,
+      calories,
+    }, {
+      onSuccess: () => {
+        setEditingMeal(null);
+        setEditForm({ name: '', protein: '', carbs: '', fat: '', calories: '' });
+      }
+    });
   };
 
   const handleDeleteMeal = (id: string) => {
@@ -287,6 +328,14 @@ const NutritionPage: React.FC = () => {
                               <span className="text-sm text-muted-foreground">
                                 {meal.calories} kcal
                               </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-primary"
+                                onClick={(e) => handleEditCustomMeal(meal, e)}
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -412,6 +461,78 @@ const NutritionPage: React.FC = () => {
                 </Button>
               </TabsContent>
             </Tabs>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Custom Meal Dialog */}
+        <Dialog open={!!editingMeal} onOpenChange={(open) => !open && setEditingMeal(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar comida</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div>
+                <Label>Nombre de la comida</Label>
+                <Input
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Proteína (g)</Label>
+                  <Input 
+                    type="number" 
+                    value={editForm.protein}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, protein: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Carbohidratos (g)</Label>
+                  <Input 
+                    type="number" 
+                    value={editForm.carbs}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, carbs: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Grasa (g)</Label>
+                  <Input 
+                    type="number" 
+                    value={editForm.fat}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, fat: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Calorías (kcal)</Label>
+                  <Input 
+                    type="number" 
+                    placeholder={String((parseInt(editForm.protein) || 0) * 4 + (parseInt(editForm.carbs) || 0) * 4 + (parseInt(editForm.fat) || 0) * 9)}
+                    value={editForm.calories}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, calories: e.target.value }))}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Auto: {(parseInt(editForm.protein) || 0) * 4 + (parseInt(editForm.carbs) || 0) * 4 + (parseInt(editForm.fat) || 0) * 9} kcal
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setEditingMeal(null)}>
+                  Cancelar
+                </Button>
+                <Button 
+                  className="flex-1" 
+                  onClick={handleSaveEditedMeal}
+                  disabled={!editForm.name.trim() || updateCustomMeal.isPending}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Guardar
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </PageHeader>
