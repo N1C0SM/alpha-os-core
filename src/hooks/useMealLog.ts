@@ -30,6 +30,17 @@ export interface LogMealInput {
   blocks?: any[];
 }
 
+export interface CustomMeal {
+  id: string;
+  user_id: string;
+  name: string;
+  protein_grams: number;
+  carbs_grams: number;
+  fat_grams: number;
+  calories: number;
+  created_at: string;
+}
+
 // Predefined meals with estimated macros
 export const PREDEFINED_MEALS = [
   { name: 'Garbanzos', protein: 15, carbs: 45, fat: 6, calories: 294 },
@@ -50,6 +61,112 @@ export const MEAL_TIME_LABELS: Record<MealTime, string> = {
   comida: 'Comida',
   cena: 'Cena',
 };
+
+// Hook to get user's custom saved meals
+export function useCustomMeals() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['custom-meals', user?.id],
+    queryFn: async (): Promise<CustomMeal[]> => {
+      if (!user) return [];
+
+      const { data, error } = await supabase
+        .from('user_custom_meals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching custom meals:', error);
+        return [];
+      }
+
+      return data || [];
+    },
+    enabled: !!user,
+  });
+}
+
+// Hook to save a custom meal
+export function useSaveCustomMeal() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (input: { name: string; protein: number; carbs: number; fat: number; calories: number }) => {
+      if (!user) throw new Error('User not authenticated');
+
+      const { data, error } = await supabase
+        .from('user_custom_meals')
+        .insert({
+          user_id: user.id,
+          name: input.name,
+          protein_grams: input.protein,
+          carbs_grams: input.carbs,
+          fat_grams: input.fat,
+          calories: input.calories,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['custom-meals', user?.id] });
+      toast({
+        title: '¡Comida guardada!',
+        description: 'Ya puedes reutilizarla desde "Mis comidas"',
+      });
+    },
+    onError: (error) => {
+      console.error('Error saving custom meal:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo guardar la comida',
+        variant: 'destructive',
+      });
+    },
+  });
+}
+
+// Hook to delete a custom meal
+export function useDeleteCustomMeal() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('user_custom_meals')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['custom-meals', user?.id] });
+      toast({
+        title: 'Comida eliminada',
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting custom meal:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo eliminar la comida',
+        variant: 'destructive',
+      });
+    },
+  });
+}
 
 export function useMealLogs(date: string) {
   const { user } = useAuth();
