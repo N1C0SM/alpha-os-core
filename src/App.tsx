@@ -12,6 +12,7 @@ import { WebLayout } from "@/components/layout/WebLayout";
 
 // Pages
 import LandingPage from "./pages/LandingPage";
+import KnowledgePage from "./pages/KnowledgePage";
 import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import TodayPage from "./pages/TodayPage";
@@ -44,6 +45,7 @@ const App = () => (
               {/* Public routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/auth" element={<AuthPage />} />
+              <Route path="/conocimiento" element={<KnowledgePage />} />
               
               {/* Onboarding (requires auth but not onboarding completion) */}
               <Route path="/onboarding" element={
