@@ -76,9 +76,10 @@ const KnowledgePage: React.FC = () => {
         <div className="max-w-4xl mx-auto">
           <div className="grid gap-4">
             {articles.map((article) => (
-              <article 
+              <Link 
                 key={article.id}
-                className="group p-6 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-all cursor-pointer"
+                to={`/conocimiento/${article.id}`}
+                className="group p-6 rounded-2xl bg-card border border-border/50 hover:border-primary/30 transition-all"
               >
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
@@ -103,7 +104,7 @@ const KnowledgePage: React.FC = () => {
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0" />
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         </div>
