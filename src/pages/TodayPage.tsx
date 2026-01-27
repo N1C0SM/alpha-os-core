@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useProfile, useUserSchedule } from '@/hooks/useProfile';
 import { Dumbbell, Loader2, Play, Moon, Sparkles, Droplets, Apple, Target, TrendingUp, Calendar } from 'lucide-react';
 import { useWorkoutPlans, useWorkoutSessions, useStartWorkoutSession } from '@/hooks/useWorkouts';
@@ -9,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { PageHeader, StatCard, ProgressBar, DataTable, EmptyState } from '@/components/ui/saas-components';
 import { cn } from '@/lib/utils';
+import { useProactiveAlerts } from '@/hooks/useProactiveAlerts';
+import { ProactiveAlertsList } from '@/components/alerts/ProactiveAlertCard';
+import WeeklyProgressCard from '@/components/progress/WeeklyProgressCard';
 
 const TodayPage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,6 +21,14 @@ const TodayPage: React.FC = () => {
   const { data: workoutPlans } = useWorkoutPlans();
   const { data: sessions } = useWorkoutSessions();
   const startSession = useStartWorkoutSession();
+  const { alerts, isLoading: alertsLoading } = useProactiveAlerts();
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+
+  const handleDismissAlert = (alertId: string) => {
+    setDismissedAlerts(prev => [...prev, alertId]);
+  };
+
+  const visibleAlerts = alerts.filter(a => !dismissedAlerts.includes(a.id));
 
   if (profileLoading) {
     return (
@@ -77,6 +88,14 @@ const TodayPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Proactive Alerts */}
+      {visibleAlerts.length > 0 && (
+        <ProactiveAlertsList 
+          alerts={visibleAlerts} 
+          onDismiss={handleDismissAlert}
+        />
+      )}
+
       <PageHeader 
         title={`Hola, ${firstName}`}
         description={format(new Date(), "EEEE, d 'de' MMMM yyyy", { locale: es })}
@@ -214,6 +233,11 @@ const TodayPage: React.FC = () => {
             Registrar comida
           </Button>
         </div>
+        {/* Weekly Progress Card */}
+        <WeeklyProgressCard 
+          scheduledDaysPerWeek={schedule?.workout_days_per_week || 4}
+          className="lg:col-span-1"
+        />
       </div>
 
       {/* Recent Sessions Table */}
