@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUpdateProfile, useUpdateUserSchedule, useUpdateUserPreferences } from '@/hooks/useProfile';
 import { useCreateFoodPreferences } from '@/hooks/useFoodPreferences';
+import { useCreateWorkoutPlan, useCreateWorkoutDay, useAddExerciseToPlan, useExercises } from '@/hooks/useWorkouts';
+import { routineDecision } from '@/services/decision-engine/routine-decision';
+import { WelcomeModal } from '@/components/onboarding/WelcomeModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -118,6 +121,8 @@ const OnboardingPage: React.FC = () => {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<OnboardingData>(INITIAL_DATA);
   const [loading, setLoading] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [generatedRoutine, setGeneratedRoutine] = useState<{ name: string; daysPerWeek: number } | null>(null);
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -125,6 +130,10 @@ const OnboardingPage: React.FC = () => {
   const updateSchedule = useUpdateUserSchedule();
   const updatePreferences = useUpdateUserPreferences();
   const createFoodPreferences = useCreateFoodPreferences();
+  const createPlan = useCreateWorkoutPlan();
+  const createDay = useCreateWorkoutDay();
+  const addExercise = useAddExerciseToPlan();
+  const { data: exercises } = useExercises();
 
   const updateData = (updates: Partial<OnboardingData>) => {
     setData(prev => ({ ...prev, ...updates }));
@@ -162,13 +171,26 @@ const OnboardingPage: React.FC = () => {
         onboarding_completed: true,
       });
 
-      // Update schedule with external activities
+      // Calculate optimal training days
+      const ALL_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+      const optimalPatterns: { [key: number]: number[][] } = {
+        3: [[0, 2, 4]], // L-X-V
+        4: [[0, 1, 3, 4]], // L-M-J-V
+        5: [[0, 1, 2, 3, 4]], // L-M-X-J-V
+        6: [[0, 1, 2, 3, 4, 5]], // L-M-X-J-V-S
+      };
+      const targetDays = Math.min(Math.max(data.workoutDaysPerWeek, 3), 6);
+      const pattern = optimalPatterns[targetDays]?.[0] || [0, 2, 4];
+      const preferredWorkoutDays = pattern.map(idx => ALL_DAYS[idx]);
+
+      // Update schedule with external activities and preferred days
       await updateSchedule.mutateAsync({
         wake_time: data.wakeTime,
         sleep_time: data.sleepTime,
         workout_time: data.preferredWorkoutTime,
         workout_days_per_week: data.workoutDaysPerWeek,
         workout_duration_minutes: data.workoutDurationMinutes,
+        preferred_workout_days: preferredWorkoutDays,
         external_activities: data.externalActivities.length > 0 
           ? JSON.parse(JSON.stringify(data.externalActivities))
           : {},
@@ -187,12 +209,92 @@ const OnboardingPage: React.FC = () => {
         allergies: data.allergies,
       });
 
-      toast({
-        title: '¡Perfil completado!',
-        description: 'Tu plan personalizado está listo.',
-      });
-      
-      navigate('/');
+      // AUTO-GENERATE ROUTINE with AI
+      if (exercises && exercises.length > 0) {
+        try {
+          // Calculate age from DOB
+          let age: number | undefined;
+          if (data.dateOfBirth) {
+            const dob = new Date(data.dateOfBirth);
+            const today = new Date();
+            age = today.getFullYear() - dob.getFullYear();
+          }
+
+          const externalActivitiesObj = data.externalActivities.reduce((acc, act) => {
+            acc[act.day] = { activity: act.name as any, duration: 60 };
+            return acc;
+          }, {} as any);
+
+          const recommendation = routineDecision({
+            fitnessGoal: data.fitnessGoal,
+            experienceLevel: data.experienceLevel,
+            daysPerWeek: data.workoutDaysPerWeek,
+            externalActivities: externalActivitiesObj,
+            preferredGymDays: preferredWorkoutDays,
+            weightKg: data.weightKg,
+            heightCm: data.heightCm,
+            gender: data.gender || undefined,
+            age,
+            bodyFatPercentage: data.bodyFatPercentage || undefined,
+            template: 'auto',
+          });
+
+          // Create the plan
+          const plan = await createPlan.mutateAsync({
+            name: recommendation.name,
+            description: recommendation.description,
+            split_type: recommendation.splitType,
+            days_per_week: data.workoutDaysPerWeek,
+          });
+
+          // Create days with exercises
+          for (let i = 0; i < recommendation.days.length; i++) {
+            const dayData = recommendation.days[i];
+            
+            const day = await createDay.mutateAsync({
+              workout_plan_id: plan.id,
+              name: dayData.name,
+              day_number: i + 1,
+              focus: dayData.focus as any[],
+              assigned_weekdays: dayData.assignedDay ? [dayData.assignedDay] : [],
+            });
+
+            // Find matching exercises and add them
+            for (const ex of dayData.exercises) {
+              const matchingExercise = exercises.find(
+                e => e.name_es?.toLowerCase() === ex.name.toLowerCase() ||
+                     e.name?.toLowerCase() === ex.name.toLowerCase()
+              ) || exercises.find(
+                e => e.name_es?.toLowerCase().includes(ex.name.toLowerCase().split(' ')[0]) ||
+                     e.name?.toLowerCase().includes(ex.name.toLowerCase().split(' ')[0])
+              );
+              
+              if (matchingExercise) {
+                await addExercise.mutateAsync({
+                  workout_plan_day_id: day.id,
+                  exercise_id: matchingExercise.id,
+                  sets: ex.sets,
+                  reps_min: ex.repsMin,
+                  reps_max: ex.repsMax,
+                  rest_seconds: ex.restSeconds,
+                });
+              }
+            }
+          }
+
+          setGeneratedRoutine({
+            name: recommendation.name,
+            daysPerWeek: data.workoutDaysPerWeek,
+          });
+          setShowWelcome(true);
+        } catch (routineError) {
+          console.error('Error generating routine:', routineError);
+          // Continue even if routine fails - user can create manually
+          navigate('/hoy');
+        }
+      } else {
+        navigate('/hoy');
+      }
     } catch (error) {
       console.error('Onboarding error:', error);
       toast({
@@ -234,6 +336,7 @@ const OnboardingPage: React.FC = () => {
   };
 
   return (
+    <>
     <div className="min-h-screen bg-background flex flex-col">
       {/* Progress bar */}
       <div className="px-6 pt-6 pb-4">
@@ -298,6 +401,16 @@ const OnboardingPage: React.FC = () => {
         </div>
       </div>
     </div>
+    <WelcomeModal
+      open={showWelcome}
+      onClose={() => {
+        setShowWelcome(false);
+        navigate('/hoy');
+      }}
+      routineName={generatedRoutine?.name}
+      daysPerWeek={generatedRoutine?.daysPerWeek}
+    />
+    </>
   );
 };
 
